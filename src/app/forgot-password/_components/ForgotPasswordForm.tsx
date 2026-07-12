@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/ui/components/Button";
 import { Input, Label } from "@/ui/components/Input";
-import { completeProfileSetup } from "@/core/auth/actions";
-import { isRedirectError } from "@/lib/isRedirectError";
+import { requestPasswordReset } from "@/core/auth/passwordReset";
 
-export function ProfileSetupForm() {
+export function ForgotPasswordForm() {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -15,10 +16,13 @@ export function ProfileSetupForm() {
       action={(fd) =>
         start(async () => {
           setError(null);
+          const email = String(fd.get("email") ?? "").trim().toLowerCase();
           try {
-            await completeProfileSetup(fd);
+            await requestPasswordReset(fd);
+            // Same next step whether or not an account actually exists —
+            // requestPasswordReset never reveals which, on purpose.
+            router.push(`/reset-password?email=${encodeURIComponent(email)}`);
           } catch (e) {
-            if (isRedirectError(e)) throw e;
             setError(e instanceof Error ? e.message : "Something went wrong");
           }
         })
@@ -26,16 +30,12 @@ export function ProfileSetupForm() {
       className="space-y-3 text-left"
     >
       <div>
-        <Label htmlFor="name">Real full name</Label>
-        <Input id="name" name="name" placeholder="e.g. Priya Sharma" required />
-      </div>
-      <div>
-        <Label htmlFor="nickname">Nickname (optional)</Label>
-        <Input id="nickname" name="nickname" placeholder="What friends call you" />
+        <Label htmlFor="email">Email</Label>
+        <Input id="email" name="email" type="email" required autoFocus />
       </div>
       {error && <p className="text-sm text-danger">{error}</p>}
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Saving…" : "Continue"}
+        {pending ? "Sending…" : "Send reset code"}
       </Button>
     </form>
   );

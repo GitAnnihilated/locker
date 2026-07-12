@@ -33,6 +33,7 @@ export default async function HomeworkPage() {
     getCoverage(membership.classId),
   ]);
 
+  const canManage = membership.role === "FOUNDER" || membership.role === "MODERATOR";
   const pending = board.filter((h) => !h.done);
   const done = board.filter((h) => h.done);
 
@@ -53,7 +54,7 @@ export default async function HomeworkPage() {
         ) : (
           <Card>
             {pending.map((item) => (
-              <HomeworkItem key={item.id} item={item} />
+              <HomeworkItem key={item.id} item={item} canManage={canManage} />
             ))}
             {done.length > 0 && (
               <div className="border-t border-border px-5 py-2 text-xs font-medium uppercase tracking-wide text-subtle">
@@ -61,7 +62,7 @@ export default async function HomeworkPage() {
               </div>
             )}
             {done.map((item) => (
-              <HomeworkItem key={item.id} item={item} />
+              <HomeworkItem key={item.id} item={item} canManage={canManage} />
             ))}
           </Card>
         )}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireCompleteProfile } from "@/core/auth/session";
+import { requireDbUser } from "@/core/auth/session";
 import { getRecentNotifications, getUnreadCount } from "@/core/notifications/queries";
 import { NotificationBell } from "@/core/notifications/components/NotificationBell";
 import { Avatar } from "@/ui/components/Avatar";
@@ -13,9 +13,9 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // requireCompleteProfile returns the fresh DB user (not the JWT snapshot),
-  // so name/nickname edits show up without re-login.
-  const user = await requireCompleteProfile();
+  // requireDbUser returns the fresh DB user (not the JWT snapshot), so
+  // name/nickname edits show up without re-login.
+  const user = await requireDbUser();
   const [notifications, unreadCount] = await Promise.all([
     getRecentNotifications(user.id),
     getUnreadCount(user.id),

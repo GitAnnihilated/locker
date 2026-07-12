@@ -6,6 +6,7 @@ import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { requireSchoolFounder, requireSchoolModerator } from "@/core/permissions/guards";
 import { generateCode } from "@/lib/ids";
+import { normalizeSchoolName, nameSimilarity } from "@/lib/similarity";
 import type { SchoolSearchResult } from "./queries";
 
 /**
@@ -32,6 +33,39 @@ export async function searchSchools(query: string): Promise<SchoolSearchResult[]
   }));
 }
 
+/**
+ * Fuzzy near-duplicate check, meant to run BEFORE the student commits to
+ * creating a school — "did you mean one of these?" — so typos and minor
+ * name variations ("Lincoln High" vs "Lincoln High School") don't fragment
+ * one real school into several Locker schools. Advisory, not a hard block:
+ * the student can still proceed to create if none of these are actually it.
+ */
+export async function findSimilarSchools(name: string): Promise<SchoolSearchResult[]> {
+  const trimmed = name.trim();
+  if (trimmed.length < 3) return [];
+
+  // Narrow the candidate set with a cheap ILIKE on the first word before
+  // scoring in JS — see lib/similarity.ts for the scale note.
+  const firstWord = trimmed.split(/\s+/)[0];
+  const candidates = await db.school.findMany({
+    where: { deletedAt: null, name: { contains: firstWord, mode: "insensitive" } },
+    take: 30,
+    include: { _count: { select: { classes: true } } },
+  });
+
+  return candidates
+    .map((s) => ({ school: s, score: nameSimilarity(s.name, trimmed) }))
+    .filter((x) => x.score >= 0.55)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map(({ school: s }) => ({
+      id: s.id,
+      name: s.name,
+      slug: s.slug,
+      classCount: s._count.classes,
+    }));
+}
+
 const createSchoolSchema = z.object({ name: z.string().min(2).max(120) });
 
 /**
@@ -39,11 +73,27 @@ const createSchoolSchema = z.object({ name: z.string().min(2).max(120) });
  * not find it just creates it and instantly owns it (School Founder). This
  * is the "never require school approval" requirement — growth cannot stall
  * on someone else's admin queue.
+ *
+ * Still hard-blocks an EXACT normalized duplicate ("Lincoln High School" vs
+ * "lincoln   high  school!!") — that's not a judgment call the student needs
+ * to make, it's the same school. Near-duplicates are caught earlier by
+ * findSimilarSchools as an advisory "did you mean" prompt instead, since
+ * only a human can tell two similarly-named schools apart.
  */
 export async function createSchool(formData: FormData) {
   const user = await requireUser();
   const parsed = createSchoolSchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid name");
+
+  const normalized = normalizeSchoolName(parsed.data.name);
+  const existingSchools = await db.school.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true },
+  });
+  const duplicate = existingSchools.find((s) => normalizeSchoolName(s.name) === normalized);
+  if (duplicate) {
+    throw new Error(`"${duplicate.name}" already exists — search for it instead of creating a duplicate.`);
+  }
 
   const slug =
     parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") +

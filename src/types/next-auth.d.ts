@@ -1,7 +1,7 @@
 import type { DefaultSession } from "next-auth";
 
-// With the database session strategy, Auth.js puts the User id on the session.
-// Declare it so `session.user.id` is typed across the app.
+// The session callback in core/auth/auth.ts copies the JWT's user id onto
+// the session. Declare it here so `session.user.id` is typed across the app.
 declare module "next-auth" {
   interface Session {
     user: {

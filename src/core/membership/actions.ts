@@ -7,6 +7,7 @@ import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { requireClassFounder, requireClassManager } from "@/core/permissions/guards";
 import { generateCode } from "@/lib/ids";
+import { GRADE_OPTIONS, SECTION_OPTIONS, composeClassName } from "./classNaming";
 
 /** Join an existing class using its invite code/link — the primary onboarding path. */
 export async function joinClassByCode(formData: FormData) {
@@ -26,23 +27,31 @@ export async function joinClassByCode(formData: FormData) {
   redirect("/homework");
 }
 
-const createClassSchema = z.object({ name: z.string().min(2).max(120) });
+const gradeSectionSchema = z.object({
+  grade: z.string().refine((v) => GRADE_OPTIONS.includes(v), "Choose a grade"),
+  section: z.string().refine((v) => SECTION_OPTIONS.includes(v), "Choose a section"),
+});
 
 /**
  * Creates a class inside an ALREADY-CHOSEN school (see src/core/school for
  * search/create-school). The creator instantly becomes the Class Founder —
  * no approval step, so a student's first class is usable in one action.
+ * The class name is composed from Grade + Section dropdowns, not typed —
+ * see core/membership/classNaming.ts.
  */
 export async function createClass(schoolId: string, formData: FormData) {
   const user = await requireUser();
-  const parsed = createClassSchema.safeParse({ name: formData.get("name") });
-  if (!parsed.success) throw new Error("Invalid class name");
+  const parsed = gradeSectionSchema.safeParse({
+    grade: formData.get("grade"),
+    section: formData.get("section"),
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid class");
 
   const klass = await db.class.create({
     data: {
       schoolId,
       founderId: user.id,
-      name: parsed.data.name,
+      name: composeClassName(parsed.data.grade, parsed.data.section),
       inviteCode: generateCode(6),
     },
   });
@@ -106,17 +115,21 @@ export async function leaveClass(classId: string) {
 // Class Founder / Moderator governance
 // ---------------------------------------------------------------------------
 
-const renameSchema = z.object({ name: z.string().min(2).max(120) });
-
 /** Class Founder only (matches the spec's founder capability list). */
 export async function renameClass(classId: string, formData: FormData) {
   const user = await requireUser();
   await requireClassFounder(user.id, classId);
 
-  const parsed = renameSchema.safeParse({ name: formData.get("name") });
-  if (!parsed.success) throw new Error("Invalid class name");
+  const parsed = gradeSectionSchema.safeParse({
+    grade: formData.get("grade"),
+    section: formData.get("section"),
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid class");
 
-  await db.class.update({ where: { id: classId }, data: { name: parsed.data.name } });
+  await db.class.update({
+    where: { id: classId },
+    data: { name: composeClassName(parsed.data.grade, parsed.data.section) },
+  });
   revalidatePath("/class/settings");
 }
 

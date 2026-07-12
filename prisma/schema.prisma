@@ -29,18 +29,24 @@ datasource db {
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
-  emailVerified DateTime? // required by the Auth.js Prisma adapter
-  passwordHash  String?   // set only for email+password accounts; null for OAuth-only users
-  // Google's profile name is NEVER written here automatically (see core/auth/auth.ts's
-  // Google `profile()` override). `name` is only ever set by the user themselves,
-  // via Profile Setup or the credentials sign-up form.
-  name          String?
+  // Set the moment email verification succeeds; null means "can't sign in
+  // yet" (see core/auth/auth.ts's authorize()). Doubles as the boolean gate
+  // and an audit timestamp of when the account became real.
+  emailVerified DateTime?
+  passwordHash  String    // every account is email+password now — always required
+  name          String    // required at signup — there is no path to an unnamed account anymore
   nickname      String?
   bio           String?
   image         String?
   handle        String?   @unique // public @name, claimed lazily
-  profileCompletedAt DateTime? // gates the dashboard until Profile Setup is done
   metadata      Json?     // escape hatch for future profile fields with no migration
+
+  // Login brute-force protection (see core/auth/auth.ts authorize()): a
+  // simple DB-backed counter/lockout. No Redis in this project, so this is
+  // the practical option rather than a distributed rate limiter.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
@@ -77,9 +83,7 @@ model User {
   schoolModeratorGrants   SchoolModerator[] @relation("SchoolModeratorGrantedBy")
   teacherOfClasses        Class[]           @relation("ClassTeacher") // reserved, unused until teacher verification ships
 
-  // Auth.js
-  accounts Account[]
-  sessions Session[]
+  passwordResetCodes PasswordResetCode[]
 }
 
 model School {
@@ -638,41 +642,42 @@ model Invite {
 }
 
 // ============================================================
-// AUTH.JS (NextAuth) adapter tables
+// AUTH: email/password + OTP verification
+// ------------------------------------------------------------------
+// No adapter, no OAuth tables — Credentials-only auth with JWT sessions
+// needs neither. A signup does NOT create a User row: it creates a
+// PendingRegistration (hashed password already, since we never want a
+// plaintext password sitting around even temporarily) that only becomes a
+// real User once the 6-digit code is verified. PasswordResetCode follows the
+// same shape for the forgot-password flow.
 // ============================================================
 
-model Account {
-  id                String  @id @default(uuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
+model PendingRegistration {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String
+  passwordHash  String
+  code          String   // 6-digit, plaintext — brute force is stopped by
+                          // `attempts` + expiry, not by hashing a 1-in-a-
+                          // million numeric code (hashing wouldn't change the
+                          // search space, only add latency).
+  codeExpiresAt DateTime
+  attempts      Int      @default(0)
+  lastSentAt    DateTime @default(now()) // resend cooldown (60s)
+  createdAt     DateTime @default(now())
 }
 
-model Session {
-  id           String   @id @default(uuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
+model PasswordResetCode {
+  id            String    @id @default(uuid())
+  userId        String
+  code          String
+  codeExpiresAt DateTime
+  attempts      Int       @default(0)
+  usedAt        DateTime? // single-use: set the moment a reset succeeds
+  lastSentAt    DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
+  user User @relation(fields: [userId], references: [id])
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
+  @@index([userId])
 }

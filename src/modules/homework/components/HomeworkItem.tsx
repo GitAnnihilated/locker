@@ -3,12 +3,20 @@
 import { useTransition } from "react";
 import { Badge } from "@/ui/components/Badge";
 import { Avatar } from "@/ui/components/Avatar";
+import { Button } from "@/ui/components/Button";
 import { relativeDay } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { toggleDone, confirmHomework } from "../actions";
+import { toggleDone, confirmHomework, removeHomework } from "../actions";
 import type { HomeworkBoardItem } from "../queries";
 
-export function HomeworkItem({ item }: { item: HomeworkBoardItem }) {
+export function HomeworkItem({
+  item,
+  canManage = false,
+}: {
+  item: HomeworkBoardItem;
+  /** Class Founder or Moderator — can take down a spam/wrong entry. */
+  canManage?: boolean;
+}) {
   const [pending, start] = useTransition();
 
   const overdue =
@@ -68,6 +76,19 @@ export function HomeworkItem({ item }: { item: HomeworkBoardItem }) {
             >
               Confirm it's real
             </button>
+          )}
+          {canManage && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto h-6 px-2 text-danger"
+              onClick={() => {
+                if (!confirm(`Remove "${item.title}"?`)) return;
+                start(() => removeHomework(item.id));
+              }}
+            >
+              Remove
+            </Button>
           )}
         </div>
       </div>

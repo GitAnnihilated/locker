@@ -27,7 +27,7 @@ The invite code is one tap away at all times (`InviteCard` on the dashboard). Jo
 | Language | **TypeScript (strict)** | Fewer runtime bugs; approachable for intermediate JS devs. |
 | Database | **PostgreSQL** | Deeply relational data + `JSONB` flexibility. Scales via read replicas / partition-by-`schoolId`. |
 | ORM | **Prisma** | Schema reads like documentation; type-safe; first-class migrations. |
-| Auth | **Auth.js (NextAuth v5)** | Google + magic link. No password storage. |
+| Auth | **Auth.js (NextAuth v5), Credentials-only** | Email + password with bcrypt hashing, 6-digit email verification and password-reset codes via **Resend**. No OAuth — every account controls its own credentials, no third-party login dependency. |
 | Validation | **Zod** | One schema for form + server action. |
 | Styling | **Tailwind + in-house component library** | Fast, consistent, themeable via CSS variables. No heavy UI dependency. |
 
@@ -95,7 +95,7 @@ No existing file changes. That isolation is the whole architecture.
 npm install
 
 # 2. Configure
-cp .env.example .env      # fill DATABASE_URL, AUTH_SECRET, Google creds
+cp .env.example .env      # fill DATABASE_URL, AUTH_SECRET, RESEND_API_KEY
 
 # 3. Database
 npm run db:push           # create tables

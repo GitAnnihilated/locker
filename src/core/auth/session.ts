@@ -20,22 +20,15 @@ export async function getCurrentUser() {
  * deleted, dev DB reset) — a "ghost session". Detecting that here and
  * force-clearing the cookie lets the app self-heal instead of trapping the
  * visitor in a loop where every page half-recognizes them.
+ *
+ * This also doubles as the app shell's identity guard: every account now
+ * requires a name and a verified email at creation time (see
+ * core/auth/actions.ts's verifyEmail), so there's no separate "complete your
+ * profile" gate needed anymore.
  */
 export async function requireDbUser() {
   const sessionUser = await requireUser();
   const dbUser = await db.user.findUnique({ where: { id: sessionUser.id } });
   if (!dbUser) redirect("/api/auth/force-signout");
-  return dbUser;
-}
-
-/**
- * Server-side guard: requires a session AND a completed profile (a real
- * name the user entered themselves). Used by the authenticated app shell so
- * nobody reaches the dashboard under an unreviewed Google display name.
- * /profile/setup itself uses requireDbUser() only, to avoid a redirect loop.
- */
-export async function requireCompleteProfile() {
-  const dbUser = await requireDbUser();
-  if (!dbUser.profileCompletedAt) redirect("/profile/setup");
   return dbUser;
 }

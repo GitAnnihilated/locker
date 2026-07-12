@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { getActiveMembership } from "@/core/membership/queries";
+import { requireClassManager } from "@/core/permissions/guards";
 import { createHomeworkSchema } from "./schema";
 
 /**
@@ -53,12 +54,46 @@ export async function toggleDone(homeworkId: string, done: boolean) {
   revalidatePath("/homework");
 }
 
-/** Confirm an assignment is real — feeds the coverage meter. */
+/** Confirm an assignment is real — feeds the coverage meter. Must be a member of that specific class. */
 export async function confirmHomework(homeworkId: string) {
-  await requireUser();
+  const user = await requireUser();
+  const homework = await db.homework.findUnique({
+    where: { id: homeworkId },
+    select: { classId: true },
+  });
+  if (!homework) return;
+
+  const membership = await db.membership.findUnique({
+    where: { userId_classId: { userId: user.id, classId: homework.classId } },
+  });
+  if (!membership) throw new Error("You're not a member of this class");
+
   await db.homework.update({
     where: { id: homeworkId },
     data: { confirmations: { increment: 1 } },
+  });
+  revalidatePath("/homework");
+}
+
+/**
+ * Class Founder or Moderator only — the actual fix for "a random member
+ * joins and spams the board": there was previously no way to take a bad
+ * entry down. Soft-deleted, not hard-deleted, matching every other module's
+ * moderation pattern (recoverable, auditable).
+ */
+export async function removeHomework(homeworkId: string) {
+  const user = await requireUser();
+  const homework = await db.homework.findUnique({
+    where: { id: homeworkId },
+    select: { classId: true },
+  });
+  if (!homework) return;
+
+  await requireClassManager(user.id, homework.classId);
+
+  await db.homework.update({
+    where: { id: homeworkId },
+    data: { deletedAt: new Date() },
   });
   revalidatePath("/homework");
 }

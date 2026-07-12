@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/ui/components/Button";
-import { Input } from "@/ui/components/Input";
+import { GradeSectionSelect } from "@/core/membership/components/GradeSectionSelect";
 import { createClass } from "@/core/membership/actions";
 import { isRedirectError } from "@/lib/isRedirectError";
 
@@ -25,10 +25,10 @@ export function CreateClassForm({ schoolId }: { schoolId: string }) {
             }
           })
         }
-        className="flex gap-2"
+        className="space-y-3"
       >
-        <Input name="name" placeholder="e.g. Grade 10-B" required />
-        <Button type="submit" disabled={pending}>
+        <GradeSectionSelect />
+        <Button type="submit" disabled={pending} className="w-full">
           {pending ? "Creating…" : "Create class"}
         </Button>
       </form>

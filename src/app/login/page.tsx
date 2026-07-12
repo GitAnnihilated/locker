@@ -1,21 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth, signIn } from "@/core/auth/auth";
-import { Button } from "@/ui/components/Button";
+import { auth } from "@/core/auth/auth";
 import { Card, CardBody } from "@/ui/components/Card";
+import { Badge } from "@/ui/components/Badge";
 import { LogoMark } from "@/ui/brand/Logo";
 import { CredentialsSignInForm } from "./_components/CredentialsSignInForm";
 
-export default async function LoginPage() {
-  // If you're already signed in and click "Continue with Google" again
-  // (e.g. testing a second account), Auth.js tries to link the new Google
-  // account to your CURRENT session's user instead of switching accounts —
-  // and if that email already belongs to a different existing user, that
-  // collision is exactly what throws OAuthAccountNotLinked. Bouncing an
-  // already-authenticated visitor away from /login removes that path
-  // entirely; signing in as someone else now requires logging out first.
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ verified?: string; reset?: string }>;
+}) {
   const session = await auth();
   if (session?.user) redirect("/dashboard");
+
+  const { verified, reset } = await searchParams;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface-2 px-6 py-12">
@@ -29,25 +28,20 @@ export default async function LoginPage() {
             Sign in to join your class and see today&apos;s homework.
           </p>
 
-          <form
-            className="mt-6"
-            action={async () => {
-              "use server";
-              await signIn("google", { redirectTo: "/dashboard" });
-            }}
-          >
-            <Button type="submit" className="w-full" size="lg">
-              Continue with Google
-            </Button>
-          </form>
+          {verified && (
+            <Badge tone="success" className="mt-4">
+              Email verified — sign in to continue
+            </Badge>
+          )}
+          {reset && (
+            <Badge tone="success" className="mt-4">
+              Password updated — sign in with your new password
+            </Badge>
+          )}
 
-          <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wide text-subtle">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
+          <div className="mt-6">
+            <CredentialsSignInForm />
           </div>
-
-          <CredentialsSignInForm />
 
           <p className="mt-4 text-sm text-subtle">
             New here?{" "}
