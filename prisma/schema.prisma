@@ -1,0 +1,678 @@
+// Locker database schema
+// ------------------------------------------------------------------
+// Design rules that keep this future-proof (the "5M users" test):
+//  1. UUID primary keys        -> no hot auto-increment, safe to shard/merge.
+//  2. schoolId on tenant tables -> partition/shard by school later, no rewrite.
+//  3. createdAt/updatedAt/deletedAt -> auditability + soft deletes everywhere.
+//  4. metadata Json? on extensible tables -> new module fields need NO migration.
+//  5. Modules are self-contained sets of tables that reference the shared
+//     User/School/Class/Membership core. New modules add tables; they never
+//     alter existing ones.
+// ------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Runtime queries go through the transaction-mode pooler (pgbouncer).
+  url       = env("DATABASE_URL")
+  // Migrations / db push need a direct (session-mode) connection.
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// CORE IDENTITY & TENANCY
+// ============================================================
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  emailVerified DateTime? // required by the Auth.js Prisma adapter
+  passwordHash  String?   // set only for email+password accounts; null for OAuth-only users
+  // Google's profile name is NEVER written here automatically (see core/auth/auth.ts's
+  // Google `profile()` override). `name` is only ever set by the user themselves,
+  // via Profile Setup or the credentials sign-up form.
+  name          String?
+  nickname      String?
+  bio           String?
+  image         String?
+  handle        String?   @unique // public @name, claimed lazily
+  profileCompletedAt DateTime? // gates the dashboard until Profile Setup is done
+  metadata      Json?     // escape hatch for future profile fields with no migration
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  memberships        Membership[]
+  homeworkCreated    Homework[]          @relation("HomeworkAuthor")
+  homeworkStatuses   HomeworkStatus[]
+  listings           MarketplaceListing[]
+  achievements       Achievement[]       // real-life accomplishments — the portfolio
+  badgeUnlocks       BadgeUnlock[]       // platform engagement rewards
+  invitesSent        Invite[]            @relation("InviteInviter")
+  invitedBy          Invite?             @relation("InviteAccepted")
+  notifications      Notification[]
+
+  // Group Finder (project workspaces). Leadership is tracked via
+  // GroupMember.role (LEADER), not a separate FK — a Group has exactly one
+  // LEADER member at a time, enforced in app logic (transferLeadership).
+  groupMemberships       GroupMember[]
+  groupJoinRequests      GroupJoinRequest[]    @relation("GroupJoinRequester")
+  groupJoinRequestsDecided GroupJoinRequest[]  @relation("GroupJoinDecider")
+  tasksAssigned          GroupTask[]           @relation("TaskAssignee")
+  tasksCreated           GroupTask[]           @relation("TaskCreator")
+  resourcesUploaded      GroupResource[]
+  groupActivities        GroupActivity[]
+  deletionVotesStarted   GroupDeletionVote[]
+  deletionBallots        GroupDeletionBallot[]
+  groupMessages          GroupMessage[]
+
+  // Ownership & moderation (student-first: a student who creates a school or
+  // class owns it outright — no approval step gates their ability to use Locker).
+  foundedSchools          School[]          @relation("SchoolFounder")
+  foundedClasses          Class[]           @relation("ClassFounder")
+  schoolModeratorRoles    SchoolModerator[] @relation("SchoolModeratorUser")
+  schoolModeratorGrants   SchoolModerator[] @relation("SchoolModeratorGrantedBy")
+  teacherOfClasses        Class[]           @relation("ClassTeacher") // reserved, unused until teacher verification ships
+
+  // Auth.js
+  accounts Account[]
+  sessions Session[]
+}
+
+model School {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique // e.g. "lincoln-high"
+  domain    String?  // optional email domain for auto-join, e.g. "@lincoln.edu"
+  founderId String   // whichever student created the school owns it — no gatekeeping
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  founder    User              @relation("SchoolFounder", fields: [founderId], references: [id])
+  classes    Class[]
+  listings   MarketplaceListing[]
+  moderators SchoolModerator[]
+
+  @@index([slug])
+  @@index([founderId])
+}
+
+// School-wide moderators, assigned by the School Founder. Distinct from class
+// Membership because a school moderator's authority spans every class in the
+// school, not just one they're a member of.
+model SchoolModerator {
+  id            String   @id @default(uuid())
+  schoolId      String
+  userId        String
+  grantedById   String
+  createdAt     DateTime @default(now())
+
+  school    School @relation(fields: [schoolId], references: [id])
+  user      User   @relation("SchoolModeratorUser", fields: [userId], references: [id])
+  grantedBy User   @relation("SchoolModeratorGrantedBy", fields: [grantedById], references: [id])
+
+  @@unique([schoolId, userId])
+  @@index([schoolId])
+}
+
+enum ClassStatus {
+  ACTIVE
+  ARCHIVED // set by the Class Founder — hides it without deleting history
+  REMOVED  // set by the School Founder as a moderation action
+}
+
+model Class {
+  id         String      @id @default(uuid())
+  schoolId   String
+  founderId  String      // whichever student created the class owns it
+  teacherId  String?     // reserved: set once a verified teacher claims the class (not implemented yet)
+  name       String      // "Grade 10-B" or "AP Biology - Period 3"
+  subject    String?
+  status     ClassStatus @default(ACTIVE)
+  inviteCode String      @unique // the growth engine: joining requires this — also doubles as the invite link/QR payload
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+
+  school      School       @relation(fields: [schoolId], references: [id])
+  founder     User         @relation("ClassFounder", fields: [founderId], references: [id])
+  teacher     User?        @relation("ClassTeacher", fields: [teacherId], references: [id])
+  memberships Membership[]
+  homework    Homework[]
+  groups      Group[]
+
+  @@index([schoolId])
+  @@index([inviteCode])
+  @@index([founderId])
+}
+
+// Class-scoped role. FOUNDER = created the class. MODERATOR = promoted by the
+// founder. TEACHER is reserved for the future claim flow (see Class.teacherId)
+// and is not assignable anywhere in current app logic.
+enum Role {
+  STUDENT
+  MODERATOR
+  FOUNDER
+  TEACHER
+}
+
+// User <-> Class join. Also the unit we count for "class size" growth gates.
+model Membership {
+  id        String   @id @default(uuid())
+  userId    String
+  classId   String
+  schoolId  String   // denormalized for fast school-scoped queries + sharding
+  role      Role     @default(STUDENT)
+  verified  Boolean  @default(false) // confirmed by >=2 existing members
+  streak    Int      @default(0)     // consecutive days active (engagement loop)
+  lastActiveOn DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id])
+  class Class @relation(fields: [classId], references: [id])
+
+  @@unique([userId, classId])
+  @@index([classId])
+  @@index([schoolId])
+}
+
+// ============================================================
+// MODULE: HOMEWORK
+// ============================================================
+
+model Homework {
+  id          String   @id @default(uuid())
+  classId     String
+  authorId    String   // first person to add it gets contribution credit
+  title       String
+  description String?
+  subject     String?
+  dueAt       DateTime?
+  confirmations Int    @default(1) // how many members vouch it's real -> coverage meter
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  class    Class            @relation(fields: [classId], references: [id])
+  author   User             @relation("HomeworkAuthor", fields: [authorId], references: [id])
+  statuses HomeworkStatus[]
+
+  @@index([classId, dueAt])
+}
+
+// Per-user done/not-done. This table IS the daily engagement signal.
+model HomeworkStatus {
+  id         String    @id @default(uuid())
+  homeworkId String
+  userId     String
+  done       Boolean   @default(false)
+  doneAt     DateTime?
+
+  homework Homework @relation(fields: [homeworkId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([homeworkId, userId])
+  @@index([userId])
+}
+
+// ============================================================
+// MODULE: MARKETPLACE  (school-scoped for liquidity)
+// ============================================================
+
+enum ListingStatus {
+  ACTIVE
+  RESERVED
+  SOLD
+}
+
+model MarketplaceListing {
+  id          String        @id @default(uuid())
+  schoolId    String
+  sellerId    String
+  title       String
+  description String?
+  priceCents  Int           @default(0) // integer money, never floats
+  currency    String        @default("USD")
+  images      String[]      @default([])
+  status      ListingStatus @default(ACTIVE)
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  school School @relation(fields: [schoolId], references: [id])
+  seller User   @relation(fields: [sellerId], references: [id])
+
+  @@index([schoolId, status])
+}
+
+// ============================================================
+// MODULE: BADGES  (platform engagement rewards — NOT real-life accomplishments)
+// ============================================================
+
+// Definitions are data, not code -> new badges need no deploy.
+model Badge {
+  id          String   @id @default(uuid())
+  key         String   @unique // "streak_7", "first_sale", "top_contributor"
+  name        String
+  description String
+  icon        String   // emoji or asset key
+  points      Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  unlocks BadgeUnlock[]
+}
+
+model BadgeUnlock {
+  id         String   @id @default(uuid())
+  badgeId    String
+  userId     String
+  unlockedAt DateTime @default(now())
+
+  badge Badge @relation(fields: [badgeId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([badgeId, userId])
+  @@index([userId])
+}
+
+// ============================================================
+// MODULE: ACHIEVEMENTS  (student portfolio — real-life accomplishments)
+// ============================================================
+
+enum AchievementCategory {
+  SPORTS
+  ACADEMICS
+  CODING
+  ART
+  MUSIC
+  DRAMA
+  DEBATE
+  MUN
+  VOLUNTEERING
+  CERTIFICATION
+  READING
+  SCIENCE
+  PHOTOGRAPHY
+  OTHER
+}
+
+enum AchievementLevel {
+  SCHOOL
+  INTER_SCHOOL
+  DISTRICT
+  STATE
+  NATIONAL
+  INTERNATIONAL
+}
+
+// Reserved for future moderator/teacher review of submitted achievements.
+// No verification workflow exists yet — every achievement is created UNVERIFIED
+// and stays that way until that feature ships.
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum Visibility {
+  PRIVATE
+  CLASS_ONLY
+  PUBLIC
+}
+
+// A real-life accomplishment a student is proud of — the "LinkedIn for
+// students" portfolio. Deliberately NOT a gamification table: no points here.
+model Achievement {
+  id                 String              @id @default(uuid())
+  userId             String
+  title              String
+  category           AchievementCategory
+  description        String?
+  level              AchievementLevel
+  achievedOn         DateTime // when the accomplishment actually happened
+  // File uploads aren't wired yet (no object storage configured) — these are
+  // plain URLs for now. Swap for real upload storage (e.g. Supabase Storage)
+  // without a schema change: the column shape doesn't need to move.
+  certificateUrl     String?
+  photoUrl           String?
+  link               String?
+  verificationStatus VerificationStatus  @default(UNVERIFIED)
+  visibility         Visibility          @default(PUBLIC)
+  metadata           Json?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userId, level])
+}
+
+// ============================================================
+// MODULE: GROUP FINDER  (student project workspaces)
+// ------------------------------------------------------------------
+// A Group is a real school project, not a chat room. Joining requires
+// Group Leader approval (GroupJoinRequest) — never automatic. Each project
+// carries its own tasks, resources, and activity feed. Deletion is a member
+// vote, never a unilateral leader action (GroupDeletionVote) — the group is
+// archived (soft-deleted) on success, never hard-deleted.
+// ============================================================
+
+enum ProjectStatus {
+  UPCOMING
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED // set by the leader directly, or by a successful deletion vote
+}
+
+// LEADER = created the project (exactly one at a time — enforced in app
+// logic via transferLeadership, which atomically demotes the old leader).
+// CO_LEADER = promoted by the Leader; can manage day-to-day project work but
+// not governance (removing members, transferring ownership, deletion votes).
+enum GroupRole {
+  LEADER
+  CO_LEADER
+  MEMBER
+}
+
+enum JoinRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// "Google Doc / Slides / Drive folder" are their own types (not just LINK)
+// so the UI can show the right icon without parsing the URL.
+enum ResourceType {
+  NOTE
+  PDF
+  DOCUMENT
+  PRESENTATION
+  IMAGE
+  LINK
+  GOOGLE_DOC
+  GOOGLE_SLIDES
+  GOOGLE_DRIVE
+  OTHER
+}
+
+enum DeletionVoteStatus {
+  OPEN
+  PASSED // >50% of current members voted DELETE -> group archived
+  FAILED // resolved, not enough DELETE votes
+  TIED   // equal DELETE/KEEP with all members voted -> not deleted, must restart
+}
+
+enum VoteChoice {
+  DELETE
+  KEEP
+}
+
+model Group {
+  id          String        @id @default(uuid())
+  classId     String
+  name        String
+  subject     String?
+  description String?
+  teacherName String?       // plain text for now — no Teacher entity/verification yet
+  dueAt       DateTime?
+  status      ProjectStatus @default(UPCOMING)
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  archivedAt  DateTime?
+  deletedAt   DateTime?
+
+  class         Class                @relation(fields: [classId], references: [id])
+  members       GroupMember[]
+  joinRequests  GroupJoinRequest[]
+  tasks         GroupTask[]
+  resources     GroupResource[]
+  activities    GroupActivity[]
+  deletionVotes GroupDeletionVote[]
+  messages      GroupMessage[]
+
+  @@index([classId, status])
+}
+
+// In-project chat. Deliberately NOT logged to GroupActivity — that feed is
+// for "important activity" (spec's own words); message-by-message chat would
+// drown it out. Polled from the client (~3s), not pushed — there's no
+// websocket/realtime infra in this app, and that's an honest, bounded cost
+// for a small project chat rather than new always-on infrastructure.
+model GroupMessage {
+  id        String    @id @default(uuid())
+  groupId   String
+  authorId  String
+  content   String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  group  Group @relation(fields: [groupId], references: [id])
+  author User  @relation(fields: [authorId], references: [id])
+
+  @@index([groupId, createdAt])
+}
+
+model GroupMember {
+  id       String    @id @default(uuid())
+  groupId  String
+  userId   String
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+
+  group Group @relation(fields: [groupId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([groupId, userId])
+  @@index([userId])
+  @@index([groupId, role])
+}
+
+// Joining is never automatic — every request needs a Leader/Co-Leader decision.
+model GroupJoinRequest {
+  id          String            @id @default(uuid())
+  groupId     String
+  userId      String
+  message     String?
+  status      JoinRequestStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+  decidedAt   DateTime?
+  decidedById String?
+
+  group     Group @relation(fields: [groupId], references: [id])
+  user      User  @relation("GroupJoinRequester", fields: [userId], references: [id])
+  decidedBy User? @relation("GroupJoinDecider", fields: [decidedById], references: [id])
+
+  @@index([groupId, status])
+}
+
+model GroupTask {
+  id          String     @id @default(uuid())
+  groupId     String
+  title       String
+  description String?
+  assigneeId  String?
+  status      TaskStatus @default(NOT_STARTED)
+  dueAt       DateTime?
+  createdById String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  completedAt DateTime?
+
+  group     Group @relation(fields: [groupId], references: [id])
+  assignee  User? @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy User  @relation("TaskCreator", fields: [createdById], references: [id])
+
+  @@index([groupId, status])
+}
+
+model GroupResource {
+  id          String       @id @default(uuid())
+  groupId     String
+  title       String
+  description String?
+  type        ResourceType
+  // File uploads aren't wired yet (no object storage configured) — this is a
+  // plain URL for now (external link, or a future Supabase Storage URL).
+  // Same column shape either way, so no migration is needed to add real
+  // uploads later.
+  url         String
+  uploaderId  String
+  createdAt   DateTime     @default(now())
+  deletedAt   DateTime?
+
+  group    Group @relation(fields: [groupId], references: [id])
+  uploader User  @relation(fields: [uploaderId], references: [id])
+
+  @@index([groupId])
+}
+
+// Denormalized, precomputed display strings (type + message) rather than a
+// fully structured event-sourcing table — this feed is read far more often
+// than it's analyzed, so optimizing for "render instantly" beats "queryable
+// by arbitrary event shape."
+model GroupActivity {
+  id        String   @id @default(uuid())
+  groupId   String
+  actorId   String
+  type      String   // "created" | "join_requested" | "member_joined" | "member_removed" | "resource_added" | "task_created" | "task_assigned" | "task_completed" | "role_changed" | "leader_transferred" | "deadline_changed" | "details_updated" | "deletion_vote_started" | "deletion_vote_resolved" | "archived"
+  message   String   // "Aryan requested to join"
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id])
+  actor User  @relation(fields: [actorId], references: [id])
+
+  @@index([groupId, createdAt])
+}
+
+// Only the Leader can start one; resolves once every CURRENT member has
+// voted. >50% DELETE -> group archived. Equal split -> TIED, group survives.
+model GroupDeletionVote {
+  id            String             @id @default(uuid())
+  groupId       String
+  initiatedById String
+  status        DeletionVoteStatus @default(OPEN)
+  createdAt     DateTime           @default(now())
+  resolvedAt    DateTime?
+
+  group         Group                 @relation(fields: [groupId], references: [id])
+  initiatedBy   User                  @relation(fields: [initiatedById], references: [id])
+  ballots       GroupDeletionBallot[]
+
+  @@index([groupId])
+}
+
+model GroupDeletionBallot {
+  id        String     @id @default(uuid())
+  voteId    String
+  userId    String
+  choice    VoteChoice
+  createdAt DateTime   @default(now())
+
+  vote GroupDeletionVote @relation(fields: [voteId], references: [id])
+  user User              @relation(fields: [userId], references: [id])
+
+  @@unique([voteId, userId])
+}
+
+// ============================================================
+// CORE: NOTIFICATIONS
+// ------------------------------------------------------------------
+// Generic and reusable beyond Group Finder on purpose — DB-backed and
+// polled on page load (no websockets/push yet), matching the rest of the
+// app's server-rendered style. `link` sends the click straight to the
+// relevant page (e.g. a group's dashboard).
+// ============================================================
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, read])
+}
+
+// ============================================================
+// GROWTH: INVITE ATTRIBUTION
+// ============================================================
+
+model Invite {
+  id         String    @id @default(uuid())
+  code       String    @unique
+  inviterId  String
+  classId    String?   // invite can be to a specific class
+  acceptedById String? @unique
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  inviter    User  @relation("InviteInviter", fields: [inviterId], references: [id])
+  acceptedBy User? @relation("InviteAccepted", fields: [acceptedById], references: [id])
+
+  @@index([inviterId])
+}
+
+// ============================================================
+// AUTH.JS (NextAuth) adapter tables
+// ============================================================
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
