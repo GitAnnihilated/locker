@@ -47,11 +47,24 @@ export async function createClass(schoolId: string, formData: FormData) {
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid class");
 
+  const name = composeClassName(parsed.data.grade, parsed.data.section);
+
+  // Grade + Section is now a fixed, canonical format (see classNaming.ts), so
+  // an exact-name match within the same school IS the same class — no fuzzy
+  // matching needed like schools get. Archived/removed classes don't block a
+  // fresh one from being created under the same grade/section.
+  const duplicate = await db.class.findFirst({
+    where: { schoolId, status: "ACTIVE", deletedAt: null, name },
+  });
+  if (duplicate) {
+    throw new Error(`${name} already exists at this school. Ask its Class Founder for an invite code instead of creating a duplicate.`);
+  }
+
   const klass = await db.class.create({
     data: {
       schoolId,
       founderId: user.id,
-      name: composeClassName(parsed.data.grade, parsed.data.section),
+      name,
       inviteCode: generateCode(6),
     },
   });

@@ -51,7 +51,23 @@ export async function signUp(formData: FormData) {
 
   const existingUser = await db.user.findUnique({ where: { email } });
   if (existingUser) {
-    throw new Error("An account with that email already exists. Try signing in.");
+    // They already have an account. Most of the time this is someone who
+    // forgot they'd signed up before and just typed their real password
+    // again — so try it as a login instead of dead-ending on an error. Only
+    // fall back to "go sign in" if the password doesn't actually match.
+    try {
+      await signIn("credentials", {
+        email,
+        password: parsed.data.password,
+        redirectTo: "/dashboard",
+      });
+    } catch (e) {
+      if (e && typeof e === "object" && "digest" in e && String(e.digest).startsWith("NEXT_REDIRECT")) {
+        throw e; // success — let the redirect happen
+      }
+      throw new Error("An account with that email already exists. Try signing in, or reset your password if you don't remember it.");
+    }
+    return;
   }
 
   const now = new Date();
