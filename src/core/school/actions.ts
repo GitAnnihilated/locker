@@ -7,6 +7,7 @@ import { requireUser } from "@/core/auth/session";
 import { requireSchoolFounder, requireSchoolModerator } from "@/core/permissions/guards";
 import { generateCode } from "@/lib/ids";
 import { normalizeSchoolName, nameSimilarity } from "@/lib/similarity";
+import { handleActionError } from "@/lib/actionError";
 import type { SchoolSearchResult } from "./queries";
 
 /**
@@ -80,110 +81,140 @@ const createSchoolSchema = z.object({ name: z.string().min(2).max(120) });
  * findSimilarSchools as an advisory "did you mean" prompt instead, since
  * only a human can tell two similarly-named schools apart.
  */
-export async function createSchool(formData: FormData) {
-  const user = await requireUser();
-  const parsed = createSchoolSchema.safeParse({ name: formData.get("name") });
-  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid name");
+export async function createSchool(
+  formData: FormData,
+): Promise<{ error: string } | { id: string; name: string; slug: string }> {
+  try {
+    const user = await requireUser();
+    const parsed = createSchoolSchema.safeParse({ name: formData.get("name") });
+    if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid name");
 
-  const normalized = normalizeSchoolName(parsed.data.name);
-  const existingSchools = await db.school.findMany({
-    where: { deletedAt: null },
-    select: { id: true, name: true },
-  });
-  const duplicate = existingSchools.find((s) => normalizeSchoolName(s.name) === normalized);
-  if (duplicate) {
-    throw new Error(`"${duplicate.name}" already exists — search for it instead of creating a duplicate.`);
+    const normalized = normalizeSchoolName(parsed.data.name);
+    const existingSchools = await db.school.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true },
+    });
+    const duplicate = existingSchools.find((s) => normalizeSchoolName(s.name) === normalized);
+    if (duplicate) {
+      throw new Error(`"${duplicate.name}" already exists — search for it instead of creating a duplicate.`);
+    }
+
+    const slug =
+      parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") +
+      "-" +
+      generateCode(4).toLowerCase();
+
+    const school = await db.school.create({
+      data: { name: parsed.data.name, slug, founderId: user.id },
+    });
+
+    return { id: school.id, name: school.name, slug: school.slug };
+  } catch (e) {
+    return handleActionError(e);
   }
-
-  const slug =
-    parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") +
-    "-" +
-    generateCode(4).toLowerCase();
-
-  const school = await db.school.create({
-    data: { name: parsed.data.name, slug, founderId: user.id },
-  });
-
-  return { id: school.id, name: school.name, slug: school.slug };
 }
 
 const editSchoolSchema = z.object({ name: z.string().min(2).max(120) });
 
 /** School Founder only — Class Founders never reach this. */
-export async function editSchoolInfo(schoolId: string, formData: FormData) {
-  const user = await requireUser();
-  await requireSchoolFounder(user.id, schoolId);
+export async function editSchoolInfo(schoolId: string, formData: FormData): Promise<{ error: string } | undefined> {
+  try {
+    const user = await requireUser();
+    await requireSchoolFounder(user.id, schoolId);
 
-  const parsed = editSchoolSchema.safeParse({ name: formData.get("name") });
-  if (!parsed.success) throw new Error("Invalid school name");
+    const parsed = editSchoolSchema.safeParse({ name: formData.get("name") });
+    if (!parsed.success) throw new Error("Invalid school name");
 
-  await db.school.update({ where: { id: schoolId }, data: { name: parsed.data.name } });
-  revalidatePath("/school/settings");
+    await db.school.update({ where: { id: schoolId }, data: { name: parsed.data.name } });
+    revalidatePath("/school/settings");
+  } catch (e) {
+    return handleActionError(e);
+  }
 }
 
 /** School Founder assigns a moderator by email — must already be part of the school. */
-export async function assignSchoolModerator(schoolId: string, formData: FormData) {
-  const user = await requireUser();
-  await requireSchoolFounder(user.id, schoolId);
+export async function assignSchoolModerator(schoolId: string, formData: FormData): Promise<{ error: string } | undefined> {
+  try {
+    const user = await requireUser();
+    await requireSchoolFounder(user.id, schoolId);
 
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const target = await db.user.findUnique({ where: { email } });
-  if (!target) throw new Error("No Locker user with that email");
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const target = await db.user.findUnique({ where: { email } });
+    if (!target) throw new Error("No Locker user with that email");
 
-  const isInSchool = await db.membership.findFirst({
-    where: { userId: target.id, schoolId },
-  });
-  if (!isInSchool) throw new Error("That student isn't part of this school yet");
+    const isInSchool = await db.membership.findFirst({
+      where: { userId: target.id, schoolId },
+    });
+    if (!isInSchool) throw new Error("That student isn't part of this school yet");
 
-  await db.schoolModerator.upsert({
-    where: { schoolId_userId: { schoolId, userId: target.id } },
-    create: { schoolId, userId: target.id, grantedById: user.id },
-    update: {},
-  });
+    await db.schoolModerator.upsert({
+      where: { schoolId_userId: { schoolId, userId: target.id } },
+      create: { schoolId, userId: target.id, grantedById: user.id },
+      update: {},
+    });
 
-  revalidatePath("/school/settings");
+    revalidatePath("/school/settings");
+  } catch (e) {
+    return handleActionError(e);
+  }
 }
 
-export async function removeSchoolModerator(schoolId: string, targetUserId: string) {
-  const user = await requireUser();
-  await requireSchoolFounder(user.id, schoolId);
+export async function removeSchoolModerator(schoolId: string, targetUserId: string): Promise<{ error: string } | undefined> {
+  try {
+    const user = await requireUser();
+    await requireSchoolFounder(user.id, schoolId);
 
-  await db.schoolModerator.deleteMany({ where: { schoolId, userId: targetUserId } });
-  revalidatePath("/school/settings");
+    await db.schoolModerator.deleteMany({ where: { schoolId, userId: targetUserId } });
+    revalidatePath("/school/settings");
+  } catch (e) {
+    return handleActionError(e);
+  }
 }
 
 /** School Founder or School Moderator: moderation action, not a launch gate. */
-export async function removeClassFromSchool(schoolId: string, classId: string) {
-  const user = await requireUser();
-  await requireSchoolModerator(user.id, schoolId);
+export async function removeClassFromSchool(schoolId: string, classId: string): Promise<{ error: string } | undefined> {
+  try {
+    const user = await requireUser();
+    await requireSchoolModerator(user.id, schoolId);
 
-  await db.class.update({ where: { id: classId }, data: { status: "REMOVED" } });
-  revalidatePath("/school/settings");
+    await db.class.update({ where: { id: classId }, data: { status: "REMOVED" } });
+    revalidatePath("/school/settings");
+  } catch (e) {
+    return handleActionError(e);
+  }
 }
 
 /** Reinstates a previously removed class. */
-export async function restoreClassInSchool(schoolId: string, classId: string) {
-  const user = await requireUser();
-  await requireSchoolModerator(user.id, schoolId);
+export async function restoreClassInSchool(schoolId: string, classId: string): Promise<{ error: string } | undefined> {
+  try {
+    const user = await requireUser();
+    await requireSchoolModerator(user.id, schoolId);
 
-  await db.class.update({ where: { id: classId }, data: { status: "ACTIVE" } });
-  revalidatePath("/school/settings");
+    await db.class.update({ where: { id: classId }, data: { status: "ACTIVE" } });
+    revalidatePath("/school/settings");
+  } catch (e) {
+    return handleActionError(e);
+  }
 }
 
 /** School Founder hands ownership to another member of the school, by email. */
-export async function transferSchoolOwnership(schoolId: string, formData: FormData) {
-  const user = await requireUser();
-  await requireSchoolFounder(user.id, schoolId);
+export async function transferSchoolOwnership(schoolId: string, formData: FormData): Promise<{ error: string } | undefined> {
+  try {
+    const user = await requireUser();
+    await requireSchoolFounder(user.id, schoolId);
 
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const target = await db.user.findUnique({ where: { email } });
-  if (!target) throw new Error("No Locker user with that email");
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const target = await db.user.findUnique({ where: { email } });
+    if (!target) throw new Error("No Locker user with that email");
 
-  const isMember = await db.membership.findFirst({
-    where: { userId: target.id, schoolId },
-  });
-  if (!isMember) throw new Error("New owner must already be part of this school");
+    const isMember = await db.membership.findFirst({
+      where: { userId: target.id, schoolId },
+    });
+    if (!isMember) throw new Error("New owner must already be part of this school");
 
-  await db.school.update({ where: { id: schoolId }, data: { founderId: target.id } });
-  revalidatePath("/school/settings");
+    await db.school.update({ where: { id: schoolId }, data: { founderId: target.id } });
+    revalidatePath("/school/settings");
+  } catch (e) {
+    return handleActionError(e);
+  }
 }

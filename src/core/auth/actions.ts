@@ -22,11 +22,10 @@ function isRedirectDigest(e: unknown): boolean {
 }
 
 /** Signs in with the given plaintext password if we have one; otherwise (or on failure) sends them to /login. */
-async function autoSignInOrRedirectToLogin(email: string, password: string | undefined) {
+async function autoSignInOrRedirectToLogin(email: string, password: string | undefined): Promise<never> {
   if (password) {
     try {
-      await signIn("credentials", { email, password, redirectTo: "/onboarding" });
-      return; // unreachable — signIn's redirect throws — but keeps intent obvious
+      await signIn("credentials", { email, password, redirectTo: "/onboarding" }); // always throws: either a NEXT_REDIRECT digest on success, or an AuthError on failure
     } catch (e) {
       if (isRedirectDigest(e)) throw e; // success — let the redirect happen
       // wrong/stale password (e.g. from a different device's sessionStorage) — fall through
@@ -60,8 +59,13 @@ const signUpSchema = z
  * (password already hashed — plaintext is never written anywhere, even
  * temporarily) and emails a 6-digit code. The real User only exists after
  * verifyEmail succeeds.
+ *
+ * Returns `{ error }` instead of throwing for expected/user-facing
+ * failures: Next.js redacts thrown Server Action errors down to a generic
+ * "omitted in production" message in production builds, so anything meant
+ * to actually reach the user has to come back as a normal return value.
  */
-export async function signUp(formData: FormData) {
+export async function signUp(formData: FormData): Promise<{ error: string } | undefined> {
   const parsed = signUpSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
@@ -69,7 +73,7 @@ export async function signUp(formData: FormData) {
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
   const email = parsed.data.email.trim().toLowerCase();
@@ -87,10 +91,8 @@ export async function signUp(formData: FormData) {
         redirectTo: "/dashboard",
       });
     } catch (e) {
-      if (e && typeof e === "object" && "digest" in e && String(e.digest).startsWith("NEXT_REDIRECT")) {
-        throw e; // success — let the redirect happen
-      }
-      throw new Error("An account with that email already exists. Try signing in, or reset your password if you don't remember it.");
+      if (isRedirectDigest(e)) throw e; // success — let the redirect happen
+      return { error: "An account with that email already exists. Try signing in, or reset your password if you don't remember it." };
     }
     return;
   }
@@ -133,13 +135,13 @@ const verifySchema = z.object({
  * device/session — that's a secure, expected fallback to "please sign in",
  * not an error: the account is still verified either way.
  */
-export async function verifyEmail(formData: FormData) {
+export async function verifyEmail(formData: FormData): Promise<{ error: string } | undefined> {
   const parsed = verifySchema.safeParse({
     email: formData.get("email"),
     code: formData.get("code"),
     password: formData.get("password") || undefined,
   });
-  if (!parsed.success) throw new Error("Enter the 6-digit code");
+  if (!parsed.success) return { error: "Enter the 6-digit code" };
 
   const email = parsed.data.email.trim().toLowerCase();
 
@@ -150,25 +152,24 @@ export async function verifyEmail(formData: FormData) {
   const alreadyVerified = await db.user.findUnique({ where: { email } });
   if (alreadyVerified) {
     await autoSignInOrRedirectToLogin(email, parsed.data.password);
-    return;
   }
 
   const pending = await db.pendingRegistration.findUnique({ where: { email } });
   if (!pending) {
-    throw new Error("We couldn't find a pending signup for that email. Please sign up again.");
+    return { error: "We couldn't find a pending signup for that email. Please sign up again." };
   }
   if (pending.codeExpiresAt < new Date()) {
-    throw new Error("This code has expired. Request a new one.");
+    return { error: "This code has expired. Request a new one." };
   }
   if (pending.attempts >= MAX_CODE_ATTEMPTS) {
-    throw new Error("Too many incorrect attempts. Request a new code.");
+    return { error: "Too many incorrect attempts. Request a new code." };
   }
   if (pending.code !== parsed.data.code) {
     await db.pendingRegistration.update({
       where: { email },
       data: { attempts: { increment: 1 } },
     });
-    throw new Error("That code doesn't match. Please try again.");
+    return { error: "That code doesn't match. Please try again." };
   }
 
   try {
@@ -197,16 +198,16 @@ export async function verifyEmail(formData: FormData) {
 }
 
 /** 60-second cooldown, fresh code, previous code invalidated. */
-export async function resendVerificationCode(email: string) {
+export async function resendVerificationCode(email: string): Promise<{ error: string } | undefined> {
   const normalizedEmail = email.trim().toLowerCase();
   const pending = await db.pendingRegistration.findUnique({ where: { email: normalizedEmail } });
-  if (!pending) throw new Error("No pending signup found for that email.");
+  if (!pending) return { error: "No pending signup found for that email." };
 
   const now = new Date();
   const msSinceLastSend = now.getTime() - pending.lastSentAt.getTime();
   if (msSinceLastSend < RESEND_COOLDOWN_MS) {
     const waitSeconds = Math.ceil((RESEND_COOLDOWN_MS - msSinceLastSend) / 1000);
-    throw new Error(`Please wait ${waitSeconds}s before requesting another code.`);
+    return { error: `Please wait ${waitSeconds}s before requesting another code.` };
   }
 
   const code = generateOtp();
@@ -223,13 +224,13 @@ const signInSchema = z.object({
   password: z.string().min(1, "Enter your password"),
 });
 
-export async function signInWithCredentials(formData: FormData) {
+export async function signInWithCredentials(formData: FormData): Promise<{ error: string } | undefined> {
   const parsed = signInSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
   const email = parsed.data.email.trim().toLowerCase();
@@ -237,7 +238,7 @@ export async function signInWithCredentials(formData: FormData) {
 
   if (user?.lockedUntil && user.lockedUntil > new Date()) {
     const mins = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000);
-    throw new Error(`Too many failed attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}.`);
+    return { error: `Too many failed attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` };
   }
 
   // No verified account yet, but there IS a pending signup with this exact
@@ -246,7 +247,7 @@ export async function signInWithCredentials(formData: FormData) {
   if (!user) {
     const pending = await db.pendingRegistration.findUnique({ where: { email } });
     if (pending && (await bcrypt.compare(parsed.data.password, pending.passwordHash))) {
-      throw new Error("Please verify your email before signing in.");
+      return { error: "Please verify your email before signing in." };
     }
   }
 
@@ -257,9 +258,10 @@ export async function signInWithCredentials(formData: FormData) {
       redirectTo: "/dashboard",
     });
   } catch (e) {
+    if (isRedirectDigest(e)) throw e; // success — let the redirect happen
     if (e instanceof AuthError) {
-      throw new Error("Incorrect email or password.");
+      return { error: "Incorrect email or password." };
     }
-    throw e; // rethrow redirect() control-flow errors on success
+    throw e; // genuinely unexpected — let it hit the error boundary
   }
 }

@@ -12,6 +12,7 @@ export function InviteCodePanel({
   initialCode: string;
 }) {
   const [code, setCode] = useState(initialCode);
+  const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   return (
@@ -25,12 +26,18 @@ export function InviteCodePanel({
         onClick={() =>
           start(async () => {
             const next = await regenerateInviteCode(classId);
-            setCode(next);
+            if (typeof next === "string") {
+              setCode(next);
+              setError(null);
+            } else {
+              setError(next.error);
+            }
           })
         }
       >
         {pending ? "Rotating…" : "Generate new code"}
       </Button>
+      {error && <p className="text-sm text-danger">{error}</p>}
     </div>
   );
 }

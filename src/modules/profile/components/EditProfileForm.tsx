@@ -21,7 +21,11 @@ export function EditProfileForm({
         start(async () => {
           setError(null);
           try {
-            await updateProfile(fd);
+            const result = await updateProfile(fd);
+            if (result?.error) {
+              setError(result.error);
+              return;
+            }
             onDone();
           } catch (e) {
             setError(e instanceof Error ? e.message : "Something went wrong");

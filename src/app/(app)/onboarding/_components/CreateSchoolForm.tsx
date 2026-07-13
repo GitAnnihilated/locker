@@ -27,8 +27,12 @@ export function CreateSchoolForm() {
     const fd = new FormData();
     fd.set("name", name);
     try {
-      const school = await createSchool(fd);
-      router.push(`/onboarding?school=${school.id}`);
+      const result = await createSchool(fd);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      router.push(`/onboarding?school=${result.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     }

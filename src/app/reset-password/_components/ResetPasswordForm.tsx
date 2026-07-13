@@ -27,7 +27,8 @@ export function ResetPasswordForm({ email }: { email: string }) {
           setError(null);
           fd.set("email", email);
           try {
-            await resetPassword(fd);
+            const result = await resetPassword(fd);
+            if (result?.error) setError(result.error);
           } catch (e) {
             if (isRedirectError(e)) throw e;
             setError(e instanceof Error ? e.message : "Something went wrong");
@@ -75,7 +76,11 @@ export function ResetPasswordForm({ email }: { email: string }) {
           startResend(async () => {
             setError(null);
             try {
-              await resendPasswordResetCode(email);
+              const result = await resendPasswordResetCode(email);
+              if (result?.error) {
+                setError(result.error);
+                return;
+              }
               setCooldown(RESEND_COOLDOWN_SECONDS);
             } catch (e) {
               setError(e instanceof Error ? e.message : "Couldn't resend the code");

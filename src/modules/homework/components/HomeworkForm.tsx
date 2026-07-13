@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Button } from "@/ui/components/Button";
 import { Input, Textarea, Label } from "@/ui/components/Input";
 import { createHomework } from "../actions";
@@ -8,13 +8,19 @@ import { createHomework } from "../actions";
 export function HomeworkForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <form
       ref={formRef}
       action={(fd) =>
         start(async () => {
-          await createHomework(fd);
+          const result = await createHomework(fd);
+          if (result?.error) {
+            setError(result.error);
+            return;
+          }
+          setError(null);
           formRef.current?.reset();
         })
       }
@@ -38,6 +44,7 @@ export function HomeworkForm() {
         <Label htmlFor="description">Notes (optional)</Label>
         <Textarea id="description" name="description" placeholder="Anything classmates should know" />
       </div>
+      {error && <p className="text-sm text-danger">{error}</p>}
       <Button type="submit" disabled={pending} className="w-full">
         {pending ? "Adding…" : "Add to class board"}
       </Button>

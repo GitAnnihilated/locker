@@ -36,7 +36,11 @@ export function LeaveClassButton({
             setError(null);
             if (!confirm(confirmMessage)) return;
             try {
-              await leaveClass(classId);
+              const result = await leaveClass(classId);
+              if (result?.error) {
+                setError(result.error);
+                return;
+              }
               router.refresh();
             } catch (e) {
               setError(e instanceof Error ? e.message : "Couldn't leave the class");

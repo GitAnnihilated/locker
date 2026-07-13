@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/ui/components/Button";
 import { RESOURCE_TYPE_META } from "../meta";
 import { removeResource } from "../actions";
@@ -14,6 +14,7 @@ export function ResourceItem({
   canRemove: boolean;
 }) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const meta = RESOURCE_TYPE_META[resource.type];
   const uploaderName = resource.uploader.nickname || resource.uploader.name || "Someone";
 
@@ -31,6 +32,7 @@ export function ResourceItem({
           {meta.label} · shared by {uploaderName} ·{" "}
           {new Date(resource.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
         </p>
+        {error && <p className="mt-1 text-xs text-danger">{error}</p>}
       </div>
       {canRemove && (
         <Button
@@ -38,7 +40,12 @@ export function ResourceItem({
           variant="ghost"
           className="text-danger"
           disabled={pending}
-          onClick={() => start(() => removeResource(resource.id))}
+          onClick={() =>
+            start(async () => {
+              const result = await removeResource(resource.id);
+              setError(result?.error ?? null);
+            })
+          }
         >
           Remove
         </Button>

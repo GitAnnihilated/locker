@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Badge } from "@/ui/components/Badge";
 import { Avatar } from "@/ui/components/Avatar";
 import { Button } from "@/ui/components/Button";
@@ -18,6 +18,7 @@ export function HomeworkItem({
   canManage?: boolean;
 }) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const overdue =
     item.dueAt && new Date(item.dueAt) < new Date() && !item.done;
@@ -31,7 +32,12 @@ export function HomeworkItem({
     >
       <button
         aria-label={item.done ? "Mark not done" : "Mark done"}
-        onClick={() => start(() => toggleDone(item.id, !item.done))}
+        onClick={() =>
+          start(async () => {
+            const result = await toggleDone(item.id, !item.done);
+            setError(result?.error ?? null);
+          })
+        }
         className={cn(
           "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition",
           item.done
@@ -71,7 +77,12 @@ export function HomeworkItem({
             <Badge tone="success">Confirmed x{item.confirmations}</Badge>
           ) : (
             <button
-              onClick={() => start(() => confirmHomework(item.id))}
+              onClick={() =>
+                start(async () => {
+                  const result = await confirmHomework(item.id);
+                  setError(result?.error ?? null);
+                })
+              }
               className="font-medium text-accent hover:underline"
             >
               Confirm it's real
@@ -84,13 +95,17 @@ export function HomeworkItem({
               className="ml-auto h-6 px-2 text-danger"
               onClick={() => {
                 if (!confirm(`Remove "${item.title}"?`)) return;
-                start(() => removeHomework(item.id));
+                start(async () => {
+                  const result = await removeHomework(item.id);
+                  setError(result?.error ?? null);
+                });
               }}
             >
               Remove
             </Button>
           )}
         </div>
+        {error && <p className="mt-1 text-xs text-danger">{error}</p>}
       </div>
     </div>
   );

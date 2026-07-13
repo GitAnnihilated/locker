@@ -28,12 +28,14 @@ export function AchievementForm({
         start(async () => {
           setError(null);
           try {
-            if (achievement) {
-              await updateAchievement(achievement.id, fd);
-            } else {
-              await createAchievement(fd);
-              formRef.current?.reset();
+            const result = achievement
+              ? await updateAchievement(achievement.id, fd)
+              : await createAchievement(fd);
+            if (result?.error) {
+              setError(result.error);
+              return;
             }
+            if (!achievement) formRef.current?.reset();
             onDone?.();
           } catch (e) {
             setError(e instanceof Error ? e.message : "Something went wrong");

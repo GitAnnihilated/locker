@@ -24,7 +24,8 @@ export function CredentialsSignInForm() {
             setError(null);
             setResendStatus("idle");
             try {
-              await signInWithCredentials(fd);
+              const result = await signInWithCredentials(fd);
+              if (result?.error) setError(result.error);
             } catch (e) {
               if (isRedirectError(e)) throw e;
               setError(e instanceof Error ? e.message : "Something went wrong");
@@ -66,7 +67,11 @@ export function CredentialsSignInForm() {
                 onClick={() =>
                   startResend(async () => {
                     try {
-                      await resendVerificationCode(email);
+                      const result = await resendVerificationCode(email);
+                      if (result?.error) {
+                        setError(result.error);
+                        return;
+                      }
                       setResendStatus("sent");
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Couldn't resend the code");

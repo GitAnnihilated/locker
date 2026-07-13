@@ -18,7 +18,8 @@ export function CreateClassForm({ schoolId }: { schoolId: string }) {
           start(async () => {
             setError(null);
             try {
-              await createClass(schoolId, fd);
+              const result = await createClass(schoolId, fd);
+              if (result?.error) setError(result.error);
             } catch (e) {
               if (isRedirectError(e)) throw e; // success — let the redirect happen
               setError(e instanceof Error ? e.message : "Something went wrong");

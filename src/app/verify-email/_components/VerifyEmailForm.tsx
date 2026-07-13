@@ -46,7 +46,8 @@ export function VerifyEmailForm({ email }: { email: string }) {
           const password = takePendingPassword(email);
           if (password) fd.set("password", password);
           try {
-            await verifyEmail(fd);
+            const result = await verifyEmail(fd);
+            if (result?.error) setError(result.error);
           } catch (e) {
             if (isRedirectError(e)) throw e;
             setError(e instanceof Error ? e.message : "Something went wrong");
@@ -86,7 +87,11 @@ export function VerifyEmailForm({ email }: { email: string }) {
           startResend(async () => {
             setError(null);
             try {
-              await resendVerificationCode(email);
+              const result = await resendVerificationCode(email);
+              if (result?.error) {
+                setError(result.error);
+                return;
+              }
               setCooldown(RESEND_COOLDOWN_SECONDS);
               router.refresh();
             } catch (e) {

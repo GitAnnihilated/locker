@@ -82,7 +82,8 @@ export function CreateGroupDialog({ existingGroups }: { existingGroups: ClassGro
               start(async () => {
                 setError(null);
                 try {
-                  await createGroup(fd);
+                  const result = await createGroup(fd);
+                  if (result?.error) setError(result.error);
                 } catch (e) {
                   if (isRedirectError(e)) throw e;
                   setError(e instanceof Error ? e.message : "Something went wrong");

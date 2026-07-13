@@ -19,7 +19,11 @@ export function ResourceForm({ groupId }: { groupId: string }) {
         start(async () => {
           setError(null);
           try {
-            await addResource(groupId, fd);
+            const result = await addResource(groupId, fd);
+            if (result?.error) {
+              setError(result.error);
+              return;
+            }
             ref.current?.reset();
           } catch (e) {
             setError(e instanceof Error ? e.message : "Something went wrong");

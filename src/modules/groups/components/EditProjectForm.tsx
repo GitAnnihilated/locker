@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/ui/components/Button";
 import { Input, Label, Select, Textarea } from "@/ui/components/Input";
 import { STATUS_META } from "../meta";
@@ -11,6 +11,7 @@ const EDITABLE_STATUSES = ["UPCOMING", "IN_PROGRESS", "COMPLETED"] as const;
 
 export function EditProjectForm({ group, onDone }: { group: GroupDashboard; onDone: () => void }) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="space-y-4">
@@ -21,7 +22,10 @@ export function EditProjectForm({ group, onDone }: { group: GroupDashboard; onDo
           defaultValue={group.status}
           disabled={pending}
           onChange={(e) =>
-            start(() => updateProjectStatus(group.id, e.target.value as (typeof EDITABLE_STATUSES)[number]))
+            start(async () => {
+              const result = await updateProjectStatus(group.id, e.target.value as (typeof EDITABLE_STATUSES)[number]);
+              setError(result?.error ?? null);
+            })
           }
         >
           {EDITABLE_STATUSES.map((s) => (
@@ -35,7 +39,11 @@ export function EditProjectForm({ group, onDone }: { group: GroupDashboard; onDo
       <form
         action={(fd) =>
           start(async () => {
-            await updateProjectDetails(group.id, fd);
+            const result = await updateProjectDetails(group.id, fd);
+            if (result?.error) {
+              setError(result.error);
+              return;
+            }
             onDone();
           })
         }
@@ -68,6 +76,7 @@ export function EditProjectForm({ group, onDone }: { group: GroupDashboard; onDo
           <Label htmlFor="description">Description</Label>
           <Textarea id="description" name="description" defaultValue={group.description ?? ""} />
         </div>
+        {error && <p className="text-sm text-danger">{error}</p>}
         <div className="flex gap-2">
           <Button type="submit" disabled={pending} className="flex-1">
             {pending ? "Saving…" : "Save changes"}

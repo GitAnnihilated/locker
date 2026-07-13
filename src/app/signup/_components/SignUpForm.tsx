@@ -29,7 +29,8 @@ export function SignUpForm() {
               // auto-sign-in right after verification; it's never sent
               // anywhere or stored until that one submission.
               stashPendingPassword(email, password);
-              await signUp(fd);
+              const result = await signUp(fd);
+              if (result?.error) setError(result.error);
             } catch (e) {
               if (isRedirectError(e)) throw e;
               setError(e instanceof Error ? e.message : "Something went wrong");

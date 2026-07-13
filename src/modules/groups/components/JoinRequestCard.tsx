@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Card, CardBody } from "@/ui/components/Card";
 import { Avatar } from "@/ui/components/Avatar";
 import { Button } from "@/ui/components/Button";
@@ -10,6 +10,7 @@ import type { GroupDashboard } from "../queries";
 
 export function JoinRequestCard({ request }: { request: GroupDashboard["joinRequests"][number] }) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const name = request.user.nickname || request.user.name || "A student";
 
   return (
@@ -30,18 +31,29 @@ export function JoinRequestCard({ request }: { request: GroupDashboard["joinRequ
             size="sm"
             variant="secondary"
             disabled={pending}
-            onClick={() => start(() => rejectJoinRequest(request.id))}
+            onClick={() =>
+              start(async () => {
+                const result = await rejectJoinRequest(request.id);
+                setError(result?.error ?? null);
+              })
+            }
           >
             Reject
           </Button>
           <Button
             size="sm"
             disabled={pending}
-            onClick={() => start(() => acceptJoinRequest(request.id))}
+            onClick={() =>
+              start(async () => {
+                const result = await acceptJoinRequest(request.id);
+                setError(result?.error ?? null);
+              })
+            }
           >
             Accept
           </Button>
         </div>
+        {error && <p className="mt-2 text-sm text-danger">{error}</p>}
       </CardBody>
     </Card>
   );

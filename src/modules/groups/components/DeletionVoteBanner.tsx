@@ -21,6 +21,7 @@ export function DeletionVoteBanner({
 }) {
   const [pending, start] = useTransition();
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   if (resultMessage) {
     return (
@@ -50,13 +51,15 @@ export function DeletionVoteBanner({
             onClick={() => {
               if (!confirm("Start a deletion vote? Every member will be notified.")) return;
               start(async () => {
-                await startDeletionVote(groupId);
+                const result = await startDeletionVote(groupId);
+                if (result && "error" in result) setError(result.error);
               });
             }}
           >
             Start deletion vote
           </Button>
         </CardBody>
+        {error && <p className="px-4 pb-4 text-sm text-danger">{error}</p>}
       </Card>
     );
   }
@@ -86,7 +89,8 @@ export function DeletionVoteBanner({
               onClick={() =>
                 start(async () => {
                   const outcome = await castDeletionVote(openVote.id, "DELETE");
-                  if (outcome?.message) setResultMessage(outcome.message);
+                  if ("error" in outcome) setError(outcome.error);
+                  else if (outcome.message) setResultMessage(outcome.message);
                 })
               }
             >
@@ -99,7 +103,8 @@ export function DeletionVoteBanner({
               onClick={() =>
                 start(async () => {
                   const outcome = await castDeletionVote(openVote.id, "KEEP");
-                  if (outcome?.message) setResultMessage(outcome.message);
+                  if ("error" in outcome) setError(outcome.error);
+                  else if (outcome.message) setResultMessage(outcome.message);
                 })
               }
             >
@@ -107,6 +112,7 @@ export function DeletionVoteBanner({
             </Button>
           </div>
         )}
+        {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       </CardBody>
     </Card>
   );

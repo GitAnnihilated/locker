@@ -12,7 +12,7 @@ export function EmailActionForm({
   buttonVariant = "primary",
   confirmMessage,
 }: {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<{ error: string } | undefined>;
   placeholder: string;
   buttonLabel: string;
   buttonVariant?: "primary" | "secondary" | "danger";
@@ -29,7 +29,8 @@ export function EmailActionForm({
             setError(null);
             if (confirmMessage && !confirm(confirmMessage)) return;
             try {
-              await action(fd);
+              const result = await action(fd);
+              if (result?.error) setError(result.error);
             } catch (e) {
               setError(e instanceof Error ? e.message : "Something went wrong");
             }

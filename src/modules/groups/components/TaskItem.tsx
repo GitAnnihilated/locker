@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Avatar } from "@/ui/components/Avatar";
 import { Select } from "@/ui/components/Input";
 import { Button } from "@/ui/components/Button";
@@ -19,6 +19,7 @@ export function TaskItem({
   canManage: boolean;
 }) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const done = task.status === "COMPLETED";
   const overdue = task.dueAt && new Date(task.dueAt) < new Date() && !done;
 
@@ -32,7 +33,10 @@ export function TaskItem({
       <button
         aria-label={done ? "Mark not done" : "Mark done"}
         onClick={() =>
-          start(() => updateTaskStatus(task.id, done ? "NOT_STARTED" : "COMPLETED"))
+          start(async () => {
+            const result = await updateTaskStatus(task.id, done ? "NOT_STARTED" : "COMPLETED");
+            setError(result?.error ?? null);
+          })
         }
         className={cn(
           "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition",
@@ -50,7 +54,10 @@ export function TaskItem({
           <Select
             value={task.status}
             onChange={(e) =>
-              start(() => updateTaskStatus(task.id, e.target.value as TaskStatus))
+              start(async () => {
+                const result = await updateTaskStatus(task.id, e.target.value as TaskStatus);
+                setError(result?.error ?? null);
+              })
             }
             className="!h-7 w-auto py-0 text-xs"
           >
@@ -85,13 +92,17 @@ export function TaskItem({
               className="ml-auto h-6 px-2 text-danger"
               onClick={() => {
                 if (!confirm("Delete this task?")) return;
-                start(() => deleteTask(task.id));
+                start(async () => {
+                  const result = await deleteTask(task.id);
+                  setError(result?.error ?? null);
+                });
               }}
             >
               Delete
             </Button>
           )}
         </div>
+        {error && <p className="mt-1 text-xs text-danger">{error}</p>}
       </div>
     </div>
   );

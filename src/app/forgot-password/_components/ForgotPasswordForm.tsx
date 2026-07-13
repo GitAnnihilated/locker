@@ -18,7 +18,11 @@ export function ForgotPasswordForm() {
           setError(null);
           const email = String(fd.get("email") ?? "").trim().toLowerCase();
           try {
-            await requestPasswordReset(fd);
+            const result = await requestPasswordReset(fd);
+            if (result?.error) {
+              setError(result.error);
+              return;
+            }
             // Same next step whether or not an account actually exists —
             // requestPasswordReset never reveals which, on purpose.
             router.push(`/reset-password?email=${encodeURIComponent(email)}`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Button } from "@/ui/components/Button";
 import { Input, Select } from "@/ui/components/Input";
 import { createTask } from "../actions";
@@ -15,13 +15,19 @@ export function TaskForm({
 }) {
   const ref = useRef<HTMLFormElement>(null);
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <form
       ref={ref}
       action={(fd) =>
         start(async () => {
-          await createTask(groupId, fd);
+          const result = await createTask(groupId, fd);
+          if (result?.error) {
+            setError(result.error);
+            return;
+          }
+          setError(null);
           ref.current?.reset();
         })
       }
@@ -42,6 +48,7 @@ export function TaskForm({
           Add
         </Button>
       </div>
+      {error && <p className="text-sm text-danger">{error}</p>}
     </form>
   );
 }

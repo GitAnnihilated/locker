@@ -30,7 +30,11 @@ export function LeaveGroupButton({ groupId, isLeader }: { groupId: string; isLea
             setError(null);
             if (!confirm(confirmMessage)) return;
             try {
-              await leaveGroup(groupId);
+              const result = await leaveGroup(groupId);
+              if (result?.error) {
+                setError(result.error);
+                return;
+              }
               router.push("/groups");
             } catch (e) {
               setError(e instanceof Error ? e.message : "Couldn't leave the project");

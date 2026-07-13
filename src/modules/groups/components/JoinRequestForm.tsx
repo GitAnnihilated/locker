@@ -30,7 +30,11 @@ export function JoinRequestForm({ groupId }: { groupId: string }) {
             start(async () => {
               setError(null);
               try {
-                await requestToJoin(groupId, fd);
+                const result = await requestToJoin(groupId, fd);
+                if (result?.error) {
+                  setError(result.error);
+                  return;
+                }
                 setSent(true);
               } catch (e) {
                 setError(e instanceof Error ? e.message : "Something went wrong");

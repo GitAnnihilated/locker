@@ -21,6 +21,7 @@ const LEVEL_TONE = {
 export function AchievementCard({ achievement }: { achievement: PortfolioAchievement }) {
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const category = CATEGORY_META[achievement.category];
   const level = LEVEL_META[achievement.level];
 
@@ -91,13 +92,17 @@ export function AchievementCard({ achievement }: { achievement: PortfolioAchieve
               disabled={pending}
               onClick={() => {
                 if (!confirm("Remove this achievement?")) return;
-                start(() => deleteAchievement(achievement.id));
+                start(async () => {
+                  const result = await deleteAchievement(achievement.id);
+                  setError(result?.error ?? null);
+                });
               }}
             >
               Remove
             </Button>
           </div>
         </div>
+        {error && <p className="mt-2 text-xs text-danger">{error}</p>}
       </CardBody>
     </Card>
   );

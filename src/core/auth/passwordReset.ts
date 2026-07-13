@@ -14,10 +14,14 @@ const emailSchema = z.object({ email: z.string().email("Enter a valid email") })
  * Deliberately never reveals whether an account exists for that email — the
  * client always shows the same "if an account exists, we sent a code"
  * message. Only *finding* a user actually sends anything.
+ *
+ * Returns `{ error }` instead of throwing for expected/user-facing
+ * failures: Next.js redacts thrown Server Action errors down to a generic
+ * "omitted in production" message in production builds.
  */
-export async function requestPasswordReset(formData: FormData) {
+export async function requestPasswordReset(formData: FormData): Promise<{ error: string } | undefined> {
   const parsed = emailSchema.safeParse({ email: formData.get("email") });
-  if (!parsed.success) throw new Error("Enter a valid email");
+  if (!parsed.success) return { error: "Enter a valid email" };
 
   const email = parsed.data.email.trim().toLowerCase();
   const user = await db.user.findUnique({ where: { email } });
@@ -51,7 +55,7 @@ export async function requestPasswordReset(formData: FormData) {
 }
 
 /** Same cooldown/no-enumeration rules as requestPasswordReset. */
-export async function resendPasswordResetCode(email: string) {
+export async function resendPasswordResetCode(email: string): Promise<{ error: string } | undefined> {
   const normalizedEmail = email.trim().toLowerCase();
   const user = await db.user.findUnique({ where: { email: normalizedEmail } });
   if (!user) return;
@@ -66,7 +70,7 @@ export async function resendPasswordResetCode(email: string) {
   const msSinceLastSend = now.getTime() - active.lastSentAt.getTime();
   if (msSinceLastSend < RESEND_COOLDOWN_MS) {
     const waitSeconds = Math.ceil((RESEND_COOLDOWN_MS - msSinceLastSend) / 1000);
-    throw new Error(`Please wait ${waitSeconds}s before requesting another code.`);
+    return { error: `Please wait ${waitSeconds}s before requesting another code.` };
   }
 
   const code = generateOtp();
@@ -96,7 +100,7 @@ const resetSchema = z
     path: ["confirmPassword"],
   });
 
-export async function resetPassword(formData: FormData) {
+export async function resetPassword(formData: FormData): Promise<{ error: string } | undefined> {
   const parsed = resetSchema.safeParse({
     email: formData.get("email"),
     code: formData.get("code"),
@@ -104,33 +108,33 @@ export async function resetPassword(formData: FormData) {
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
   const email = parsed.data.email.trim().toLowerCase();
   const user = await db.user.findUnique({ where: { email } });
   // Same message whether the email doesn't exist or the code is wrong —
   // no reason to distinguish for an attacker probing this form.
-  const invalidCodeError = new Error("Invalid or expired code.");
-  if (!user) throw invalidCodeError;
+  const invalidCodeError = { error: "Invalid or expired code." };
+  if (!user) return invalidCodeError;
 
   const resetCode = await db.passwordResetCode.findFirst({
     where: { userId: user.id, usedAt: null },
     orderBy: { createdAt: "desc" },
   });
-  if (!resetCode) throw invalidCodeError;
+  if (!resetCode) return invalidCodeError;
   if (resetCode.codeExpiresAt < new Date()) {
-    throw new Error("This code has expired. Request a new one.");
+    return { error: "This code has expired. Request a new one." };
   }
   if (resetCode.attempts >= MAX_CODE_ATTEMPTS) {
-    throw new Error("Too many incorrect attempts. Request a new code.");
+    return { error: "Too many incorrect attempts. Request a new code." };
   }
   if (resetCode.code !== parsed.data.code) {
     await db.passwordResetCode.update({
       where: { id: resetCode.id },
       data: { attempts: { increment: 1 } },
     });
-    throw new Error("That code doesn't match. Please try again.");
+    return { error: "That code doesn't match. Please try again." };
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
