@@ -3,12 +3,37 @@
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { AuthError } from "next-auth";
 import { db } from "@/core/db/client";
 import { signIn } from "./auth";
 import { generateOtp } from "@/lib/ids";
 import { sendVerificationEmail } from "@/core/email/send";
 import { CODE_TTL_MS, RESEND_COOLDOWN_MS, MAX_CODE_ATTEMPTS } from "./constants";
+
+function isRedirectDigest(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "digest" in e &&
+    typeof (e as { digest?: unknown }).digest === "string" &&
+    (e as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+  );
+}
+
+/** Signs in with the given plaintext password if we have one; otherwise (or on failure) sends them to /login. */
+async function autoSignInOrRedirectToLogin(email: string, password: string | undefined) {
+  if (password) {
+    try {
+      await signIn("credentials", { email, password, redirectTo: "/onboarding" });
+      return; // unreachable — signIn's redirect throws — but keeps intent obvious
+    } catch (e) {
+      if (isRedirectDigest(e)) throw e; // success — let the redirect happen
+      // wrong/stale password (e.g. from a different device's sessionStorage) — fall through
+    }
+  }
+  redirect("/login?verified=1");
+}
 
 const passwordSchema = z
   .string()
@@ -117,8 +142,18 @@ export async function verifyEmail(formData: FormData) {
   if (!parsed.success) throw new Error("Enter the 6-digit code");
 
   const email = parsed.data.email.trim().toLowerCase();
-  const pending = await db.pendingRegistration.findUnique({ where: { email } });
 
+  // A double-tapped "Verify" button (easy on mobile before the button
+  // visually disables) fires two requests. If a concurrent request already
+  // finished creating the account, this ISN'T a failure — sign them in
+  // instead of re-validating a code whose PendingRegistration is already gone.
+  const alreadyVerified = await db.user.findUnique({ where: { email } });
+  if (alreadyVerified) {
+    await autoSignInOrRedirectToLogin(email, parsed.data.password);
+    return;
+  }
+
+  const pending = await db.pendingRegistration.findUnique({ where: { email } });
   if (!pending) {
     throw new Error("We couldn't find a pending signup for that email. Please sign up again.");
   }
@@ -136,34 +171,29 @@ export async function verifyEmail(formData: FormData) {
     throw new Error("That code doesn't match. Please try again.");
   }
 
-  await db.user.create({
-    data: {
-      email: pending.email,
-      name: pending.name,
-      passwordHash: pending.passwordHash,
-      emailVerified: new Date(),
-    },
-  });
-  await db.pendingRegistration.delete({ where: { email } });
-
-  if (parsed.data.password) {
-    try {
-      await signIn("credentials", {
-        email,
-        password: parsed.data.password,
-        redirectTo: "/onboarding",
-      });
-      return;
-    } catch (e) {
-      // A redirect() from a successful signIn throws a control-flow error —
-      // let that propagate. Anything else, fall through to manual sign-in.
-      if (e && typeof e === "object" && "digest" in e && String(e.digest).startsWith("NEXT_REDIRECT")) {
-        throw e;
-      }
-    }
+  try {
+    await db.user.create({
+      data: {
+        email: pending.email,
+        name: pending.name,
+        passwordHash: pending.passwordHash,
+        emailVerified: new Date(),
+      },
+    });
+  } catch (e) {
+    // P2002 = unique constraint on email — a concurrent duplicate request
+    // won the race and created the account a moment before this one did.
+    // That's still a successful verification, not an error.
+    const isDuplicateEmail =
+      e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
+    if (!isDuplicateEmail) throw e;
   }
 
-  redirect("/login?verified=1");
+  // deleteMany, not delete: tolerant of a concurrent request already having
+  // removed this row — never throws just because it's already gone.
+  await db.pendingRegistration.deleteMany({ where: { email } });
+
+  await autoSignInOrRedirectToLogin(email, parsed.data.password);
 }
 
 /** 60-second cooldown, fresh code, previous code invalidated. */

@@ -20,6 +20,13 @@ export function VerifyEmailForm({ email }: { email: string }) {
   // guessing/fetching the real last-sent time.
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
   const formRef = useRef<HTMLFormElement>(null);
+  // A synchronous lock, not React state: `disabled={pending}` only takes
+  // effect after a re-render, which leaves a brief window where a fast
+  // double-tap (common on mobile) fires two submissions before the button
+  // visually disables. This ref blocks the second one instantly. The server
+  // is also race-safe on its own (see verifyEmail), but stopping the
+  // duplicate request at the source is cheaper and faster for the user.
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -30,7 +37,9 @@ export function VerifyEmailForm({ email }: { email: string }) {
   return (
     <form
       ref={formRef}
-      action={(fd) =>
+      action={(fd) => {
+        if (submittingRef.current) return;
+        submittingRef.current = true;
         start(async () => {
           setError(null);
           fd.set("email", email);
@@ -41,8 +50,11 @@ export function VerifyEmailForm({ email }: { email: string }) {
           } catch (e) {
             if (isRedirectError(e)) throw e;
             setError(e instanceof Error ? e.message : "Something went wrong");
+          } finally {
+            submittingRef.current = false;
           }
-        })
+        });
+      }
       }
       className="space-y-3 text-left"
     >
