@@ -4,7 +4,7 @@ const STEPS = [
   {
     n: "01",
     title: "Create your account",
-    description: "Sign up with Google or email — takes about thirty seconds.",
+    description: "Sign up with your email — takes about thirty seconds.",
   },
   {
     n: "02",
