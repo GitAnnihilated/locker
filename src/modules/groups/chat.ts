@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
+import { handleActionError } from "@/lib/actionError";
 import { requireMembership } from "./actions";
 
 const memberSelect = {
@@ -37,18 +38,37 @@ const messageSchema = z.object({
   content: z.string().trim().min(1).max(2000),
 });
 
-export async function sendGroupMessage(groupId: string, formData: FormData) {
-  const user = await requireUser();
-  await requireMembership(groupId, user.id);
+/**
+ * Returns the created message (with author info already joined) so the
+ * client can swap its optimistic bubble for the real one without waiting on
+ * the next poll tick. Returns `{ error }` instead of throwing for expected
+ * failures — Next.js redacts thrown Server Action errors down to a generic
+ * message in production, and the client needs the real text for its toast.
+ */
+export async function sendGroupMessage(
+  groupId: string,
+  formData: FormData,
+): Promise<{ message: GroupChatMessage } | { error: string }> {
+  try {
+    const user = await requireUser();
+    await requireMembership(groupId, user.id);
 
-  const parsed = messageSchema.safeParse({ content: formData.get("content") });
-  if (!parsed.success) return; // empty/too-long — just drop it, no need to surface a form error for chat
+    const parsed = messageSchema.safeParse({ content: formData.get("content") });
+    if (!parsed.success) {
+      return { error: "Message can't be empty or over 2000 characters." };
+    }
 
-  await db.groupMessage.create({
-    data: { groupId, authorId: user.id, content: parsed.data.content },
-  });
+    const message = await db.groupMessage.create({
+      data: { groupId, authorId: user.id, content: parsed.data.content },
+      include: { author: memberSelect },
+    });
 
-  // Only revalidates the sender's own next navigation — other members pick
-  // up new messages via the client-side poll, not this.
-  revalidatePath(`/groups/${groupId}`);
+    // Only revalidates the sender's own next navigation — other members pick
+    // up new messages via the client-side poll, not this.
+    revalidatePath(`/groups/${groupId}`);
+
+    return { message };
+  } catch (e) {
+    return handleActionError(e);
+  }
 }

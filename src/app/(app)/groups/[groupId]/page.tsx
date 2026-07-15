@@ -86,7 +86,13 @@ export default async function GroupDashboardPage({
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
-          <GroupChat groupId={group.id} viewerId={user.id} initialMessages={messages} />
+          <GroupChat
+            groupId={group.id}
+            viewerId={user.id}
+            viewerName={user.name}
+            viewerImage={user.image}
+            initialMessages={messages}
+          />
 
           <Card>
             <CardBody>
