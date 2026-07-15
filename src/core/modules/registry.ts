@@ -13,7 +13,8 @@ export type ModuleId =
   | "marketplace"
   | "achievements"
   | "groups"
-  | "badges";
+  | "badges"
+  | "messages";
 
 export interface ModuleDefinition {
   id: ModuleId;
@@ -66,6 +67,14 @@ export const MODULES: ModuleDefinition[] = [
     icon: "🎖️",
     href: "/badges",
     description: "Rewards for using Locker — streaks, milestones, firsts.",
+    enabled: true,
+  },
+  {
+    id: "messages",
+    name: "Messages",
+    icon: "💬",
+    href: "/messages",
+    description: "Direct messages with anyone in your school.",
     enabled: true,
   },
 ];

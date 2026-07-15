@@ -25,6 +25,7 @@ const MODULE_TINT: Record<string, "accent" | "lime" | "orange"> = {
   groups: "lime",
   achievements: "accent",
   badges: "orange",
+  messages: "lime",
 };
 
 export default async function DashboardPage() {
