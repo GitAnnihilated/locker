@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { ChatMessage, SendResult } from "./types";
 
+const POLL_MS = 3000;
+// How close to the bottom (px) counts as "already caught up" — new messages
+// only auto-scroll the view if the reader was already about here.
 const NEAR_BOTTOM_PX = 80;
 const TOAST_MS = 4000;
 
@@ -13,22 +15,19 @@ export type OptimisticMessage = ChatMessage & {
 };
 
 /**
- * Shared realtime chat engine for both Group Chat and Direct Messages.
+ * Shared chat engine for both Group Chat and Direct Messages.
  *
- * Realtime is Supabase Broadcast, fed by a Postgres trigger on insert (see
- * scripts/setup-realtime-broadcast.mjs) — not Postgres Changes, so no RLS
- * policy is needed on the message tables themselves for this to work.
- * Broadcast is fire-and-forget (no replay), so every (re)subscribe also
- * triggers a refetch to catch up on anything sent during a disconnect.
+ * Polled, not pushed — there's no realtime infra in this app, so a short
+ * client-side interval is the honest, bounded way to approximate live chat
+ * without standing up new always-on infrastructure. Polling pauses while
+ * the tab is backgrounded and skips re-renders when nothing changed.
  *
  * Sending is optimistic: the bubble and cleared input happen before the
  * network call resolves; the server action's response (or a caught error)
- * reconciles it. The channel is only used to receive *other* people's
- * messages — the sender's own message is reconciled directly, never
- * waiting on its own broadcast to come back around.
+ * reconciles it. The sender's own message is reconciled directly from the
+ * action's response, never waiting on the next poll tick.
  */
-export function useRealtimeChat({
-  channelTopic,
+export function useChat({
   viewerId,
   viewerName,
   viewerImage,
@@ -36,7 +35,6 @@ export function useRealtimeChat({
   sendAction,
   refetchMessages,
 }: {
-  channelTopic: string;
   viewerId: string;
   viewerName?: string | null;
   viewerImage?: string | null;
@@ -52,70 +50,37 @@ export function useRealtimeChat({
   const sendingRef = useRef(false);
   const nearBottomRef = useRef(true);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  // Always current — the broadcast subscription callback closes over the
-  // module once on mount, so it can't read fresh React state directly.
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
+  const lastIdRef = useRef(initialMessages.at(-1)?.id);
+  // Poll compares against the latest count via a ref, not the `messages`
+  // dependency directly, so the interval doesn't get torn down and
+  // recreated on every tick.
+  const messagesLengthRef = useRef(initialMessages.length);
+  messagesLengthRef.current = messages.length;
 
-  // ---- realtime subscription ----
+  // ---- poll for messages from other participants ----
   useEffect(() => {
-    let supabase;
-    try {
-      supabase = getSupabaseBrowserClient();
-    } catch (e) {
-      // Realtime env vars not configured — chat still works (send/receive
-      // on page load), it just won't get live pushes until they're set.
-      // eslint-disable-next-line no-console
-      console.error(e);
-      return;
-    }
-
-    const channel = supabase.channel(channelTopic, {
-      config: { broadcast: { self: false } },
-    });
-
-    channel.on("broadcast", { event: "new_message" }, ({ payload }) => {
-      const row = payload as {
-        id: string;
-        authorId: string;
-        content: string;
-        createdAt: string;
-        author: ChatMessage["author"];
-      };
-      const incoming: ChatMessage = {
-        id: row.id,
-        authorId: row.authorId,
-        content: row.content,
-        createdAt: new Date(row.createdAt),
-        author: row.author,
-      };
-      setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]));
-    });
-
-    channel.subscribe((status) => {
-      if (status === "SUBSCRIBED") {
-        // Catch up on anything sent while we were disconnected/mounting —
-        // broadcast has no history/replay, so this is the only way back.
-        void refetchMessages().then((fresh) => {
-          setMessages((prev) => {
-            const known = new Set(prev.map((m) => m.id));
-            const merged = [...prev];
-            for (const m of fresh) {
-              if (!known.has(m.id)) merged.push(m);
-            }
-            // Prefer the server's order wholesale once we have it — cheaper
-            // and safer than trying to interleave two partially-known lists.
-            return fresh.length >= prev.length ? fresh : merged;
-          });
-        });
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      // Skip while the tab is backgrounded — no point spending the request.
+      if (document.visibilityState === "hidden") return;
+      try {
+        const fresh = await refetchMessages();
+        if (cancelled) return;
+        // Skip the re-render entirely when nothing actually changed.
+        if (fresh.at(-1)?.id !== lastIdRef.current || fresh.length !== messagesLengthRef.current) {
+          lastIdRef.current = fresh.at(-1)?.id;
+          setMessages(fresh);
+        }
+      } catch {
+        // Transient network/auth blip — the next tick retries on its own.
       }
-    });
-
+    }, POLL_MS);
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelTopic]);
+  }, [refetchMessages]);
 
   // ---- auto-scroll, but only if the reader was already near the bottom ----
   useEffect(() => {
@@ -156,6 +121,7 @@ export function useRealtimeChat({
         return;
       }
 
+      lastIdRef.current = result.message.id;
       setPending((prev) => prev.filter((m) => m.tempId !== tempId));
       setMessages((prev) => (prev.some((m) => m.id === result.message.id) ? prev : [...prev, result.message]));
     },

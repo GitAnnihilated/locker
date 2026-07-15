@@ -4,7 +4,7 @@ import { Card, CardHeader } from "@/ui/components/Card";
 import { ChatThread } from "@/modules/chat/ChatThread";
 import { getGroupMessages, sendGroupMessage, type GroupChatMessage } from "../chat";
 
-/** Thin wrapper: all realtime/optimistic-send/scroll logic lives in ChatThread. */
+/** Thin wrapper: all polling/optimistic-send/scroll logic lives in ChatThread. */
 export function GroupChat({
   groupId,
   viewerId,
@@ -22,7 +22,6 @@ export function GroupChat({
     <Card className="relative">
       <CardHeader className="font-semibold">Chat</CardHeader>
       <ChatThread
-        channelTopic={`group-chat:${groupId}`}
         viewerId={viewerId}
         viewerName={viewerName}
         viewerImage={viewerImage}

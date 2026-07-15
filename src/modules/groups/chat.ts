@@ -12,11 +12,10 @@ const memberSelect = {
 } as const;
 
 /**
- * In-project chat, scoped to Group Finder only. Realtime via Supabase
- * Broadcast, fed by a Postgres trigger on insert (see
- * scripts/setup-realtime-broadcast.mjs) — this query is only used for the
- * initial load and to catch up after a reconnect, not on an interval. Any
- * current member can read and send; there's no role gate here, chat is
+ * In-project chat, scoped to Group Finder only. Polled from the client
+ * (~3s) rather than pushed — this app has no websocket/realtime infra, so
+ * that's an honest, bounded cost instead of new always-on infrastructure.
+ * Any current member can read and send; there's no role gate here, chat is
  * plain participation, not governance.
  */
 export async function getGroupMessages(groupId: string) {
@@ -41,12 +40,10 @@ const messageSchema = z.object({
 
 /**
  * Returns the created message (with author info already joined) so the
- * sender's own client can swap its optimistic bubble for the real one
- * immediately — everyone else's clients get it via the Realtime broadcast
- * the insert trigger fires. Returns `{ error }` instead of throwing for
- * expected failures — Next.js redacts thrown Server Action errors down to a
- * generic message in production, and the client needs the real text for
- * its toast.
+ * client can swap its optimistic bubble for the real one without waiting on
+ * the next poll tick. Returns `{ error }` instead of throwing for expected
+ * failures — Next.js redacts thrown Server Action errors down to a generic
+ * message in production, and the client needs the real text for its toast.
  */
 export async function sendGroupMessage(
   groupId: string,
@@ -66,8 +63,8 @@ export async function sendGroupMessage(
       include: { author: memberSelect },
     });
 
-    // Only revalidates the sender's own next navigation — other members get
-    // the update via the Realtime broadcast, not this.
+    // Only revalidates the sender's own next navigation — other members pick
+    // up new messages via the client-side poll, not this.
     revalidatePath(`/groups/${groupId}`);
 
     return { message };

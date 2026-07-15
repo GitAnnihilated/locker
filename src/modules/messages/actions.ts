@@ -14,10 +14,10 @@ import type { DirectChatMessage } from "./queries";
 
 /**
  * Exposed as Server Actions (not plain queries) specifically so client
- * components — the "New message" picker and the DM thread's realtime
- * reconnect/catch-up fetch — can call them directly without an API route.
- * queries.ts imports Prisma directly, so it can only ever be called from
- * server code; these are the client-safe entry points.
+ * components — the "New message" picker and the DM thread's polling loop —
+ * can call them directly without an API route. queries.ts imports Prisma
+ * directly, so it can only ever be called from server code; these are the
+ * client-safe entry points.
  */
 export async function searchSchoolUsers(query: string) {
   const user = await requireUser();

@@ -9,7 +9,7 @@ import type { DirectChatMessage } from "../queries";
  * bound to their arguments (conversationId) here, inside a Client
  * Component, rather than passed as ad-hoc closures across the Server-to-
  * Client boundary from the page — keeps the binding pattern identical to
- * Group Chat's.
+ * Group Chat's. All polling/optimistic-send/scroll logic lives in ChatThread.
  */
 export function DirectMessageThread({
   conversationId,
@@ -29,7 +29,6 @@ export function DirectMessageThread({
   const firstName = otherName.split(" ")[0];
   return (
     <ChatThread
-      channelTopic={`dm:${conversationId}`}
       viewerId={viewerId}
       viewerName={viewerName}
       viewerImage={viewerImage}

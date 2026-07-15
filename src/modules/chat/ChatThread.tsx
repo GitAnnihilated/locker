@@ -4,19 +4,18 @@ import { useRef, useState } from "react";
 import { Avatar } from "@/ui/components/Avatar";
 import { Button } from "@/ui/components/Button";
 import { cn } from "@/lib/cn";
-import { useRealtimeChat, type OptimisticMessage } from "./useRealtimeChat";
+import { useChat, type OptimisticMessage } from "./useChat";
 import type { ChatMessage, SendResult } from "./types";
 
 const TEXTAREA_MAX_PX = 120;
 
 /**
  * Presentational chat UI shared by Group Chat and Direct Messages — all the
- * realtime/optimistic/scroll logic lives in useRealtimeChat, this just
- * renders it. `emptyLabel` is the only thing callers usually need to
- * customize ("No messages yet — say hi." vs. "Send the first message.").
+ * polling/optimistic/scroll logic lives in useChat, this just renders it.
+ * `emptyLabel` is the only thing callers usually need to customize
+ * ("No messages yet — say hi." vs. "Send the first message.").
  */
 export function ChatThread({
-  channelTopic,
   viewerId,
   viewerName,
   viewerImage,
@@ -26,7 +25,6 @@ export function ChatThread({
   emptyLabel = "No messages yet — say hi.",
   placeholder = "Type a message…",
 }: {
-  channelTopic: string;
   viewerId: string;
   viewerName?: string | null;
   viewerImage?: string | null;
@@ -36,8 +34,7 @@ export function ChatThread({
   emptyLabel?: string;
   placeholder?: string;
 }) {
-  const { messages, pending, toast, listRef, handleScroll, sendMessage, retry, dismissToast } = useRealtimeChat({
-    channelTopic,
+  const { messages, pending, toast, listRef, handleScroll, sendMessage, retry, dismissToast } = useChat({
     viewerId,
     viewerName,
     viewerImage,
