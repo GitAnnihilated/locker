@@ -5,6 +5,8 @@ import {
   canAccessSchoolSettings,
   canEditSchoolInfo,
   canTransferSchoolOwnership,
+  canGovernClassAsSchool,
+  canManageClassAsSchool,
   type ClassContext,
   type SchoolContext,
 } from "./rules";
@@ -68,4 +70,37 @@ export async function requireSchoolFounder(userId: string, schoolId: string) {
     throw new Error("Only the school founder can do that.");
   }
   return ctx;
+}
+
+/**
+ * Class Founder, OR the School Founder of that class's school (governance
+ * actions: rename, promote/demote moderator, transfer ownership, archive).
+ * A School Founder never needs to be a member of the class to govern it.
+ */
+export async function requireClassGovernor(userId: string, classId: string) {
+  const klass = await db.class.findUniqueOrThrow({ where: { id: classId }, select: { schoolId: true } });
+  const classCtx = await loadClassContext(classId);
+  if (canGovernClass(userId, classCtx)) return classCtx;
+
+  const schoolCtx = await loadSchoolContext(klass.schoolId);
+  if (!canGovernClassAsSchool(userId, schoolCtx)) {
+    throw new Error("Only the class founder or school founder can do that.");
+  }
+  return classCtx;
+}
+
+/**
+ * Class Founder/Moderator, OR the School Founder/Moderator of that class's
+ * school (day-to-day management: invite code, removing a member).
+ */
+export async function requireClassManagerOrSchoolAuthority(userId: string, classId: string) {
+  const klass = await db.class.findUniqueOrThrow({ where: { id: classId }, select: { schoolId: true } });
+  const classCtx = await loadClassContext(classId);
+  if (canManageClass(userId, classCtx)) return classCtx;
+
+  const schoolCtx = await loadSchoolContext(klass.schoolId);
+  if (!canManageClassAsSchool(userId, schoolCtx)) {
+    throw new Error("You don't have permission to manage this class.");
+  }
+  return classCtx;
 }

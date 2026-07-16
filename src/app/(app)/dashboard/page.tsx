@@ -5,8 +5,7 @@ import {
   getActiveMembership,
   getClassMemberCount,
 } from "@/core/membership/queries";
-import { getSchool, getSchoolModerators } from "@/core/school/queries";
-import { canAccessSchoolSettings } from "@/core/permissions/rules";
+import { getManagedSchool } from "@/core/school/queries";
 import { enabledModules } from "@/core/modules/registry";
 import { getPendingHomeworkCount } from "@/modules/homework/queries";
 import { getMyActiveGroupCount } from "@/modules/groups/queries";
@@ -41,36 +40,45 @@ export default async function DashboardPage() {
   const membership = await getActiveMembership(user.id);
 
   if (!membership) {
+    // Still check for school authority — a School Founder with no class
+    // membership yet (or whose only class is elsewhere) shouldn't be
+    // stranded with no way to reach the school they founded.
+    const managedSchool = await getManagedSchool(user.id);
     return (
       <EmptyState
         icon="👋"
         title={`Welcome, ${displayName?.split(" ")[0] ?? "student"}!`}
-        description="Join your class to unlock everything Locker can do."
+        description={
+          managedSchool
+            ? `You manage ${managedSchool.name}. Join a class to unlock the rest of Locker.`
+            : "Join your class to unlock everything Locker can do."
+        }
         action={
-          <Link href="/onboarding">
-            <Button>Get started</Button>
-          </Link>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Link href="/onboarding">
+              <Button>Get started</Button>
+            </Link>
+            {managedSchool && (
+              <Link href="/school/settings">
+                <Button variant="secondary">Manage {managedSchool.name}</Button>
+              </Link>
+            )}
+          </div>
         }
       />
     );
   }
 
-  const [memberCount, school, pendingHomework, activeGroups, achievementCount, progress] = await Promise.all([
+  const [memberCount, managedSchool, pendingHomework, activeGroups, achievementCount, progress] = await Promise.all([
     getClassMemberCount(membership.classId),
-    getSchool(membership.schoolId),
+    getManagedSchool(user.id),
     getPendingHomeworkCount(membership.classId, user.id),
     getMyActiveGroupCount(membership.classId, user.id),
     getAchievementCount(user.id),
     getProgressSummary(user.id),
   ]);
-  const schoolModerators = school ? await getSchoolModerators(school.id) : [];
 
-  const canManageSchool =
-    school != null &&
-    canAccessSchoolSettings(user.id, {
-      founderId: school.founderId,
-      moderatorUserIds: schoolModerators.map((m) => m.userId),
-    });
+  const canManageSchool = managedSchool != null;
 
   return (
     <div className="animate-fade-up space-y-8">

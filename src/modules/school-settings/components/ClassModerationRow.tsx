@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Badge } from "@/ui/components/Badge";
 import { Button } from "@/ui/components/Button";
 import { removeClassFromSchool, restoreClassInSchool } from "@/core/school/actions";
@@ -30,6 +31,11 @@ export function ClassModerationRow({
           <Badge tone={isRemoved ? "danger" : klass.status === "ARCHIVED" ? "neutral" : "success"}>
             {klass.status}
           </Badge>
+          <Link href={`/class/settings?classId=${klass.id}`}>
+            <Button size="sm" variant="secondary">
+              Manage
+            </Button>
+          </Link>
           {isRemoved ? (
             <Button
               size="sm"

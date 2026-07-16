@@ -3,6 +3,7 @@ import { requireUser } from "@/core/auth/session";
 import { getActiveMembership } from "@/core/membership/queries";
 import {
   getSchool,
+  getManagedSchool,
   getSchoolModerators,
   getSchoolClassesForModeration,
 } from "@/core/school/queries";
@@ -22,15 +23,22 @@ import { ClassModerationRow } from "@/modules/school-settings/components/ClassMo
 
 export default async function SchoolSettingsPage() {
   const user = await requireUser();
-  const membership = await getActiveMembership(user.id);
 
-  if (!membership) {
-    return <EmptyState icon="🚪" title="Join a class first" />;
+  // Resolve the school this user actually has authority over first (founder
+  // or moderator), independent of their current active class — a School
+  // Founder shouldn't get locked out just because their most recently
+  // joined class is in a different school, or because they have no class
+  // membership at all. Only fall back to "the school of my active class"
+  // for the access-denied empty state below, so the message can still name
+  // a school when a non-manager lands here.
+  let school = await getManagedSchool(user.id);
+  if (!school) {
+    const membership = await getActiveMembership(user.id);
+    if (membership) school = await getSchool(membership.schoolId);
   }
 
-  const school = await getSchool(membership.schoolId);
   if (!school) {
-    return <EmptyState icon="🏫" title="School not found" />;
+    return <EmptyState icon="🚪" title="Join a class first" />;
   }
 
   const moderators = await getSchoolModerators(school.id);

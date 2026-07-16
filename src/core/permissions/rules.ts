@@ -5,9 +5,13 @@
  *
  * Role model recap:
  *  - School Founder: whoever created the School row (School.founderId).
- *    School-wide authority; does NOT automatically get class authority.
+ *    School-wide authority, INCLUDING an override into every class in their
+ *    school — see canGovernClassAsSchool/canManageClassAsSchool below. A
+ *    School Founder never needs to be a class member to manage that class.
  *  - School Moderator: assigned by the School Founder (SchoolModerator row).
- *    Can moderate spam across the whole school (remove classes).
+ *    Can moderate spam across the whole school (remove classes) and gets the
+ *    same day-to-day (non-governance) override into every class as a Class
+ *    Moderator would — see canManageClassAsSchool.
  *  - Class Founder: whoever created the Class row (Class.founderId), mirrored
  *    as Membership.role = FOUNDER for that class.
  *  - Class Moderator: promoted by the Class Founder (Membership.role = MODERATOR).
@@ -77,4 +81,21 @@ export function canTransferSchoolOwnership(
   school: SchoolContext,
 ): boolean {
   return isSchoolFounder(userId, school);
+}
+
+/**
+ * School Founder override for class governance actions (rename, promote/
+ * demote moderator, transfer ownership, archive) on ANY class in their
+ * school — not just one they happen to be a member of.
+ */
+export function canGovernClassAsSchool(userId: string, school: SchoolContext): boolean {
+  return isSchoolFounder(userId, school);
+}
+
+/**
+ * School Founder + School Moderator override for day-to-day class
+ * management (invite code, removing a member) on ANY class in their school.
+ */
+export function canManageClassAsSchool(userId: string, school: SchoolContext): boolean {
+  return canModerateSchool(userId, school);
 }

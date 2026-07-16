@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
-import { requireClassFounder, requireClassManager } from "@/core/permissions/guards";
+import { requireClassGovernor, requireClassManagerOrSchoolAuthority } from "@/core/permissions/guards";
 import { generateCode } from "@/lib/ids";
 import { handleActionError } from "@/lib/actionError";
 import { awardPoints } from "@/core/rewards/engine";
@@ -148,11 +148,11 @@ export async function leaveClass(classId: string): Promise<{ error: string } | u
 // Class Founder / Moderator governance
 // ---------------------------------------------------------------------------
 
-/** Class Founder only (matches the spec's founder capability list). */
+/** Class Founder, or the School Founder of this class's school. */
 export async function renameClass(classId: string, formData: FormData): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
-    await requireClassFounder(user.id, classId);
+    await requireClassGovernor(user.id, classId);
 
     const parsed = gradeSectionSchema.safeParse({
       grade: formData.get("grade"),
@@ -170,11 +170,11 @@ export async function renameClass(classId: string, formData: FormData): Promise<
   }
 }
 
-/** Class Founder or Moderator — rotates the code so old links stop working. */
+/** Class Founder/Moderator, or School Founder/Moderator — rotates the code so old links stop working. */
 export async function regenerateInviteCode(classId: string): Promise<{ error: string } | string> {
   try {
     const user = await requireUser();
-    await requireClassManager(user.id, classId);
+    await requireClassManagerOrSchoolAuthority(user.id, classId);
 
     const inviteCode = generateCode(6);
     await db.class.update({ where: { id: classId }, data: { inviteCode } });
@@ -186,11 +186,11 @@ export async function regenerateInviteCode(classId: string): Promise<{ error: st
   }
 }
 
-/** Class Founder or Moderator — removes a spammy/inactive member. */
+/** Class Founder/Moderator, or School Founder/Moderator — removes a spammy/inactive member. */
 export async function removeMember(classId: string, targetUserId: string): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
-    const ctx = await requireClassManager(user.id, classId);
+    const ctx = await requireClassManagerOrSchoolAuthority(user.id, classId);
 
     if (targetUserId === ctx.founderId) {
       throw new Error("The class founder can't be removed. Transfer ownership first.");
@@ -203,11 +203,11 @@ export async function removeMember(classId: string, targetUserId: string): Promi
   }
 }
 
-/** Class Founder only — grants moderation power to a member. */
+/** Class Founder, or School Founder — grants moderation power to a member. */
 export async function promoteModerator(classId: string, targetUserId: string): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
-    await requireClassFounder(user.id, classId);
+    await requireClassGovernor(user.id, classId);
 
     await db.membership.updateMany({
       where: { classId, userId: targetUserId },
@@ -219,11 +219,11 @@ export async function promoteModerator(classId: string, targetUserId: string): P
   }
 }
 
-/** Class Founder only — revokes moderation power. */
+/** Class Founder, or School Founder — revokes moderation power. */
 export async function demoteModerator(classId: string, targetUserId: string): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
-    await requireClassFounder(user.id, classId);
+    await requireClassGovernor(user.id, classId);
 
     await db.membership.updateMany({
       where: { classId, userId: targetUserId, role: "MODERATOR" },
@@ -235,11 +235,11 @@ export async function demoteModerator(classId: string, targetUserId: string): Pr
   }
 }
 
-/** Class Founder only — hides the class without deleting its history. */
+/** Class Founder, or School Founder — hides the class without deleting its history. */
 export async function archiveClass(classId: string): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
-    await requireClassFounder(user.id, classId);
+    await requireClassGovernor(user.id, classId);
 
     await db.class.update({ where: { id: classId }, data: { status: "ARCHIVED" } });
     revalidatePath("/class/settings");
@@ -249,11 +249,16 @@ export async function archiveClass(classId: string): Promise<{ error: string } |
   }
 }
 
-/** Class Founder only — hands the class to another member. */
+/**
+ * Class Founder, or School Founder — hands the class to another member.
+ * Demotes the OUTGOING class founder (ctx.founderId), not necessarily the
+ * caller — a School Founder invoking this from School Settings usually
+ * isn't a member of the class at all.
+ */
 export async function transferClassOwnership(classId: string, targetUserId: string): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
-    await requireClassFounder(user.id, classId);
+    const ctx = await requireClassGovernor(user.id, classId);
 
     const targetMembership = await db.membership.findUnique({
       where: { userId_classId: { userId: targetUserId, classId } },
@@ -267,12 +272,13 @@ export async function transferClassOwnership(classId: string, targetUserId: stri
         data: { role: "FOUNDER" },
       }),
       db.membership.update({
-        where: { userId_classId: { userId: user.id, classId } },
+        where: { userId_classId: { userId: ctx.founderId, classId } },
         data: { role: "STUDENT" },
       }),
     ]);
 
     revalidatePath("/class/settings");
+    revalidatePath("/school/settings");
   } catch (e) {
     return handleActionError(e);
   }
