@@ -111,7 +111,8 @@ export default async function SchoolSettingsPage() {
               ))}
               <div className="p-4">
                 <EmailActionForm
-                  action={(fd) => assignSchoolModerator(school.id, fd)}
+                  schoolId={school.id}
+                  action={assignSchoolModerator}
                   placeholder="classmate@school.edu"
                   buttonLabel="Add moderator"
                 />
@@ -129,7 +130,8 @@ export default async function SchoolSettingsPage() {
                 This cannot be undone by you — only the new founder can transfer it back.
               </p>
               <EmailActionForm
-                action={(fd) => transferSchoolOwnership(school.id, fd)}
+                schoolId={school.id}
+                action={transferSchoolOwnership}
                 placeholder="new-founder@school.edu"
                 buttonLabel="Transfer"
                 buttonVariant="danger"
