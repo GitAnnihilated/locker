@@ -6,6 +6,7 @@ import { requireUser } from "@/core/auth/session";
 import { getActiveMembership } from "@/core/membership/queries";
 import { requireClassManager } from "@/core/permissions/guards";
 import { handleActionError } from "@/lib/actionError";
+import { awardPoints } from "@/core/rewards/engine";
 import { createHomeworkSchema } from "./schema";
 
 /**
@@ -56,6 +57,8 @@ export async function toggleDone(homeworkId: string, done: boolean): Promise<{ e
       create: { homeworkId, userId: user.id, done, doneAt: done ? new Date() : null },
       update: { done, doneAt: done ? new Date() : null },
     });
+
+    if (done) await awardPoints(user.id, "homework_completed", homeworkId);
 
     revalidatePath("/homework");
   } catch (e) {

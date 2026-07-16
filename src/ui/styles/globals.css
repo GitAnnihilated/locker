@@ -160,10 +160,18 @@ body {
   30% { transform: translateY(0); opacity: 1; }
   100% { transform: translateY(0); opacity: 1; }
 }
+@keyframes lk-pop {
+  /* unlock celebration: icon overshoots then settles — used once per reward */
+  0% { transform: scale(0.3) rotate(-8deg); opacity: 0; }
+  55% { transform: scale(1.15) rotate(4deg); opacity: 1; }
+  80% { transform: scale(0.95) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
 
 .animate-fade-up { animation: lk-fade-up var(--dur-slow) var(--ease) both; }
 .animate-fade-in { animation: lk-fade-in var(--dur-slow) var(--ease) both; }
 .animate-scale-in { animation: lk-scale-in var(--dur) var(--ease) both; }
+.animate-celebration-pop { animation: lk-pop 640ms cubic-bezier(.34,1.56,.64,1) both; }
 
 /* stagger helpers for reveal groups (used sparingly on the landing page) */
 .reveal-1 { animation-delay: 60ms; }

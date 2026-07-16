@@ -18,7 +18,7 @@ export async function getProfile(userId: string) {
 export async function getProfileStats(userId: string) {
   const [achievementsCount, badgesCount, listingsCount] = await Promise.all([
     db.achievement.count({ where: { userId, deletedAt: null } }),
-    db.badgeUnlock.count({ where: { userId } }),
+    db.userBadge.count({ where: { userId } }),
     db.marketplaceListing.count({ where: { sellerId: userId, deletedAt: null } }),
   ]);
 

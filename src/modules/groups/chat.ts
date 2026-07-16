@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { handleActionError } from "@/lib/actionError";
+import { awardPoints } from "@/core/rewards/engine";
 import { requireMembership } from "./actions";
 
 const memberSelect = {
@@ -62,6 +63,8 @@ export async function sendGroupMessage(
       data: { groupId, authorId: user.id, content: parsed.data.content },
       include: { author: memberSelect },
     });
+
+    await awardPoints(user.id, "group_participation", groupId);
 
     // Only revalidates the sender's own next navigation — other members pick
     // up new messages via the client-side poll, not this.

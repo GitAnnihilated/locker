@@ -11,6 +11,7 @@ import { enabledModules } from "@/core/modules/registry";
 import { getPendingHomeworkCount } from "@/modules/homework/queries";
 import { getMyActiveGroupCount } from "@/modules/groups/queries";
 import { getAchievementCount } from "@/modules/achievements/queries";
+import { getProgressSummary } from "@/core/rewards/queries";
 import { Card, CardBody } from "@/ui/components/Card";
 import { Badge } from "@/ui/components/Badge";
 import { Button } from "@/ui/components/Button";
@@ -24,7 +25,7 @@ const MODULE_TINT: Record<string, "accent" | "lime" | "orange"> = {
   marketplace: "orange",
   groups: "lime",
   achievements: "accent",
-  badges: "orange",
+  rewards: "orange",
   messages: "lime",
 };
 
@@ -54,12 +55,13 @@ export default async function DashboardPage() {
     );
   }
 
-  const [memberCount, school, pendingHomework, activeGroups, achievementCount] = await Promise.all([
+  const [memberCount, school, pendingHomework, activeGroups, achievementCount, progress] = await Promise.all([
     getClassMemberCount(membership.classId),
     getSchool(membership.schoolId),
     getPendingHomeworkCount(membership.classId, user.id),
     getMyActiveGroupCount(membership.classId, user.id),
     getAchievementCount(user.id),
+    getProgressSummary(user.id),
   ]);
   const schoolModerators = school ? await getSchoolModerators(school.id) : [];
 
@@ -83,19 +85,21 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {membership.streak > 0 && (
-            <Badge tone="warning">🔥 {membership.streak}-day streak</Badge>
+          {progress.currentStreak > 0 && (
+            <Badge tone="warning">🔥 {progress.currentStreak}-day streak</Badge>
           )}
+          <Badge tone="accent">⭐ Lv. {progress.level}</Badge>
           <Badge tone={membership.role === "FOUNDER" ? "accent" : membership.role === "MODERATOR" ? "success" : "neutral"}>
             {membership.role}
           </Badge>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <StatTile href="/homework" label="Due" value={pendingHomework} icon="📚" tint="accent" />
         <StatTile href="/groups" label="Active projects" value={activeGroups} icon="👥" tint="lime" />
         <StatTile href="/achievements" label="Achievements" value={achievementCount} icon="🏅" tint="orange" />
+        <StatTile href="/rewards" label="Points" value={progress.points} icon="🏆" tint="accent" />
       </div>
 
       <div className="flex flex-wrap gap-2">

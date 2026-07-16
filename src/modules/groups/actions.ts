@@ -7,6 +7,7 @@ import { requireUser } from "@/core/auth/session";
 import { getActiveMembership } from "@/core/membership/queries";
 import { notifyUsers } from "@/core/notifications/create";
 import { handleActionError } from "@/lib/actionError";
+import { awardPoints } from "@/core/rewards/engine";
 import { canGovernProject, canManageProject } from "./permissions";
 import {
   createGroupSchema,
@@ -113,6 +114,7 @@ export async function createGroup(formData: FormData): Promise<{ error: string }
     });
 
     await logActivity(group.id, user.id, "created", `${user.name ?? "Someone"} created the project`);
+    await awardPoints(user.id, "group_created", group.id);
 
     revalidatePath("/groups");
     redirect(`/groups/${group.id}`);
@@ -179,6 +181,7 @@ export async function acceptJoinRequest(requestId: string): Promise<{ error: str
       }),
       db.groupMember.create({ data: { groupId: request.groupId, userId: request.userId, role: "MEMBER" } }),
     ]);
+    await awardPoints(request.userId, "group_joined", request.groupId);
 
     const requester = await db.user.findUnique({ where: { id: request.userId }, select: { name: true, nickname: true } });
     await logActivity(
@@ -565,7 +568,7 @@ export async function addResource(groupId: string, formData: FormData): Promise<
     });
     if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid resource");
 
-    await db.groupResource.create({
+    const resource = await db.groupResource.create({
       data: {
         groupId,
         title: parsed.data.title,
@@ -576,6 +579,7 @@ export async function addResource(groupId: string, formData: FormData): Promise<
       },
     });
 
+    await awardPoints(user.id, "resource_uploaded", resource.id);
     await logActivity(groupId, user.id, "resource_added", `${parsed.data.title} was shared`);
 
     revalidatePath(`/groups/${groupId}`);

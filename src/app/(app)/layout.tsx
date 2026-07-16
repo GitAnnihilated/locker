@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireDbUser } from "@/core/auth/session";
 import { getRecentNotifications, getUnreadCount } from "@/core/notifications/queries";
 import { NotificationBell } from "@/core/notifications/components/NotificationBell";
+import { recordDailyActivity } from "@/core/rewards/engine";
+import { CelebrationQueue } from "@/modules/rewards/components/CelebrationQueue";
 import { Avatar } from "@/ui/components/Avatar";
 import { LogoutButton } from "@/core/auth/components/LogoutButton";
 import { LogoMark } from "@/ui/brand/Logo";
@@ -16,6 +18,10 @@ export default async function AppLayout({
   // requireDbUser returns the fresh DB user (not the JWT snapshot), so
   // name/nickname edits show up without re-login.
   const user = await requireDbUser();
+  // No-ops instantly if already checked in today — cheap enough to call on
+  // every authenticated page load, which is what "meaningful daily
+  // activity" actually requires (no separate check-in button to remember).
+  await recordDailyActivity(user.id);
   const [notifications, unreadCount] = await Promise.all([
     getRecentNotifications(user.id),
     getUnreadCount(user.id),
@@ -50,6 +56,7 @@ export default async function AppLayout({
       </div>
 
       <MobileNav />
+      <CelebrationQueue />
     </div>
   );
 }

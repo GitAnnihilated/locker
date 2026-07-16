@@ -56,7 +56,6 @@ model User {
   homeworkStatuses   HomeworkStatus[]
   listings           MarketplaceListing[]
   achievements       Achievement[]       // real-life accomplishments — the portfolio
-  badgeUnlocks       BadgeUnlock[]       // platform engagement rewards
   invitesSent        Invite[]            @relation("InviteInviter")
   invitedBy          Invite?             @relation("InviteAccepted")
   notifications      Notification[]
@@ -89,6 +88,15 @@ model User {
   conversationsAsUser1 Conversation[]  @relation("ConversationUser1")
   conversationsAsUser2 Conversation[]  @relation("ConversationUser2")
   directMessagesSent   DirectMessage[]
+
+  // Rewards (points/badges/streaks/perks) — platform engagement
+  // gamification, kept deliberately separate from Achievement (real-life
+  // accomplishments have no points, on purpose — see that model's comment).
+  progress     UserProgress?
+  pointEntries PointEntry[]
+  badges       UserBadge[]
+  perks        UserPerk[]
+  celebrations Celebration[]
 }
 
 model School {
@@ -179,8 +187,6 @@ model Membership {
   schoolId  String   // denormalized for fast school-scoped queries + sharding
   role      Role     @default(STUDENT)
   verified  Boolean  @default(false) // confirmed by >=2 existing members
-  streak    Int      @default(0)     // consecutive days active (engagement loop)
-  lastActiveOn DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -264,23 +270,62 @@ model MarketplaceListing {
 }
 
 // ============================================================
-// MODULE: BADGES  (platform engagement rewards — NOT real-life accomplishments)
+// MODULE: REWARDS  (points, badges, streaks, perks — platform engagement
+// gamification. Deliberately separate from Achievement, which is a
+// real-life-accomplishment portfolio with no points, on purpose — grinding
+// XP should never be confusable with a verified competition result.)
+//
+// Definitions (Badge/Perk/LevelDef/PointAction) are DATA, not code: adding
+// one is an INSERT, never a code change. Unlock/award logic is one generic
+// evaluator per concept, reading condition fields off the row — see
+// src/core/rewards/engine.ts. Never add a per-badge `if` there.
 // ============================================================
 
-// Definitions are data, not code -> new badges need no deploy.
-model Badge {
-  id          String   @id @default(uuid())
-  key         String   @unique // "streak_7", "first_sale", "top_contributor"
-  name        String
-  description String
-  icon        String   // emoji or asset key
-  points      Int      @default(0)
-  createdAt   DateTime @default(now())
-
-  unlocks BadgeUnlock[]
+enum Rarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
 }
 
-model BadgeUnlock {
+// What a badge's unlock condition is measured against — computed fresh
+// per user by src/core/rewards/stats.ts.
+enum ConditionStat {
+  HOMEWORK_COMPLETED
+  RESOURCES_UPLOADED
+  GROUPS_JOINED
+  GROUPS_CREATED
+  CURRENT_STREAK
+  LONGEST_STREAK
+  TOTAL_POINTS_EARNED
+  ACCOUNT_RANK    // 1-based signup order; lower = earlier (for "Early Adopter")
+  ONBOARDING_DONE // 0 or 1
+}
+
+enum ConditionOp {
+  GTE // >= value
+  LTE // <= value — only useful for ACCOUNT_RANK ("among the first N")
+}
+
+model Badge {
+  id             String        @id @default(uuid())
+  key            String        @unique // "homework_hero", "consistency_30"
+  name           String
+  description    String
+  icon           String        // emoji
+  rarity         Rarity        @default(COMMON)
+  conditionStat  ConditionStat
+  conditionOp    ConditionOp   @default(GTE)
+  conditionValue Int
+  sortOrder      Int           @default(0)
+  createdAt      DateTime      @default(now())
+
+  unlocks UserBadge[]
+
+  @@index([conditionStat])
+}
+
+model UserBadge {
   id         String   @id @default(uuid())
   badgeId    String
   userId     String
@@ -291,6 +336,136 @@ model BadgeUnlock {
 
   @@unique([badgeId, userId])
   @@index([userId])
+}
+
+// A perk occupies a "slot" — at most one perk per slot can be equipped at
+// once (e.g. only one name color active), except UTILITY, which is a
+// consumable stockpile (shields, revival tokens), not equippable at all.
+enum PerkSlot {
+  NAME_COLOR
+  AVATAR_FRAME
+  CHAT_BUBBLE
+  CELEBRATION_EFFECT
+  COSMETIC_BADGE
+  UTILITY
+}
+
+model Perk {
+  id          String   @id @default(uuid())
+  key         String   @unique // "name_color_gold", "streak_shield"
+  name        String
+  description String
+  icon        String
+  rarity      Rarity   @default(COMMON)
+  slot        PerkSlot
+  price       Int      // in points; 0 = never purchasable, streak-granted only
+  purchasable Boolean  @default(true)
+  value       String?  // hex color / css class / effect key — read by the slot's own renderer, never branched on by key
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  owners UserPerk[]
+}
+
+model UserPerk {
+  id         String   @id @default(uuid())
+  perkId     String
+  userId     String
+  acquiredAt DateTime @default(now())
+  equipped   Boolean  @default(false)
+  quantity   Int      @default(1) // consumables only (UTILITY slot)
+
+  perk Perk @relation(fields: [perkId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([perkId, userId])
+  @@index([userId])
+}
+
+// Level curve as data — cumulative totalEarned required per level, plus
+// optional flavor title. Tuning the curve is an edit to seeded rows, never
+// a formula change.
+model LevelDef {
+  level        Int     @id
+  pointsNeeded Int
+  title        String?
+}
+
+enum DedupScope {
+  NONE            // always awardable, subject only to cooldownSec
+  PER_REF         // once per (user, action, refId), forever — e.g. one award per homeworkId
+  PER_DAY         // once per (user, action) per calendar day — e.g. daily login
+  PER_REF_PER_DAY // once per (user, action, refId) per calendar day — e.g. one group's chat/day
+}
+
+// Point-earning action catalog. awardPoints(userId, key, refId?) looks
+// itself up here — cooldown/dedup enforcement is generic, keyed off these
+// fields, never a per-action special case.
+model PointAction {
+  key         String     @id
+  name        String
+  points      Int
+  dedupScope  DedupScope @default(NONE)
+  cooldownSec Int        @default(0)
+  enabled     Boolean    @default(true)
+}
+
+// Append-only audit log of every point award. This table IS the mechanism
+// for cooldowns, dedup, and time-windowed leaderboards (weekly/monthly sum
+// straight off createdAt) — not a side effect of them.
+model PointEntry {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  points    Int
+  refId     String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([userId, action, refId])
+  @@index([action, createdAt])
+}
+
+model UserProgress {
+  userId        String    @id
+  points        Int       @default(0) // spendable balance
+  totalEarned   Int       @default(0) // lifetime — the contribution score; never decreases on spend
+  level         Int       @default(1)
+  currentStreak Int       @default(0)
+  longestStreak Int       @default(0)
+  lastActiveOn  DateTime? // date-granularity check-in marker, drives streak math
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// One row per celebration-worthy moment (badge unlocked, level up, perk
+// granted, streak milestone) — a single unseen-flag queue the app shell
+// drains into celebration modals, instead of scattering a `seen` column
+// across every different reward type.
+enum CelebrationType {
+  BADGE
+  LEVEL_UP
+  PERK
+  STREAK_MILESTONE
+}
+
+model Celebration {
+  id          String          @id @default(uuid())
+  userId      String
+  type        CelebrationType
+  title       String
+  description String?
+  icon        String?
+  rarity      Rarity?
+  seen        Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, seen])
 }
 
 // ============================================================

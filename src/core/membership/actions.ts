@@ -8,6 +8,7 @@ import { requireUser } from "@/core/auth/session";
 import { requireClassFounder, requireClassManager } from "@/core/permissions/guards";
 import { generateCode } from "@/lib/ids";
 import { handleActionError } from "@/lib/actionError";
+import { awardPoints } from "@/core/rewards/engine";
 import { GRADE_OPTIONS, SECTION_OPTIONS, composeClassName } from "./classNaming";
 
 /** Join an existing class using its invite code/link — the primary onboarding path. */
@@ -25,6 +26,9 @@ export async function joinClassByCode(formData: FormData): Promise<{ error: stri
       create: { userId: user.id, classId: klass.id, schoolId: klass.schoolId },
       update: {},
     });
+
+    await awardPoints(user.id, "class_joined", klass.id);
+    await awardPoints(user.id, "school_joined", klass.schoolId);
 
     redirect("/homework");
   } catch (e) {
@@ -84,6 +88,9 @@ export async function createClass(schoolId: string, formData: FormData): Promise
         verified: true,
       },
     });
+
+    await awardPoints(user.id, "class_joined", klass.id);
+    await awardPoints(user.id, "school_joined", schoolId);
 
     redirect("/homework");
   } catch (e) {
