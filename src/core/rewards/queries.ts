@@ -1,9 +1,17 @@
 import { db } from "@/core/db/client";
 import { computeUserStats } from "./stats";
 
+// Read-first: avoids sending a write (upsert) to Postgres on every page
+// load just to confirm a row that's already there almost every time.
+async function getOrCreateProgress(userId: string) {
+  const existing = await db.userProgress.findUnique({ where: { userId } });
+  if (existing) return existing;
+  return db.userProgress.upsert({ where: { userId }, create: { userId }, update: {} });
+}
+
 export async function getProgressSummary(userId: string) {
   const [progress, levels] = await Promise.all([
-    db.userProgress.upsert({ where: { userId }, create: { userId }, update: {} }),
+    getOrCreateProgress(userId),
     db.levelDef.findMany({ orderBy: { level: "asc" } }),
   ]);
 
@@ -55,7 +63,7 @@ export async function getPerkStore(userId: string) {
   const [perks, owned, progress] = await Promise.all([
     db.perk.findMany({ orderBy: [{ slot: "asc" }, { sortOrder: "asc" }, { price: "asc" }] }),
     db.userPerk.findMany({ where: { userId } }),
-    db.userProgress.upsert({ where: { userId }, create: { userId }, update: {} }),
+    getOrCreateProgress(userId),
   ]);
   const ownedByPerkId = new Map(owned.map((o) => [o.perkId, o]));
 

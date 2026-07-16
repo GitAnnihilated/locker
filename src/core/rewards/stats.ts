@@ -8,9 +8,10 @@ import { ConditionStat } from "@prisma/client";
  * one enum value + one branch here; unlock logic itself never changes.
  */
 export async function computeUserStats(userId: string): Promise<Record<ConditionStat, number>> {
-  const self = await db.user.findUnique({ where: { id: userId }, select: { createdAt: true } });
-
-  const [homeworkCompleted, resourcesUploaded, groupsJoined, groupsCreated, classesJoined, progress, accountRank] =
+  // accountRank is a correlated subquery (rather than a separate self lookup
+  // + a full db.user.count call) so it's one round trip, not two, and reads
+  // via the createdAt index instead of a full table scan.
+  const [homeworkCompleted, resourcesUploaded, groupsJoined, groupsCreated, classesJoined, progress, rankRows] =
     await Promise.all([
       db.homeworkStatus.count({ where: { userId, done: true } }),
       db.groupResource.count({ where: { uploaderId: userId, deletedAt: null } }),
@@ -18,8 +19,12 @@ export async function computeUserStats(userId: string): Promise<Record<Condition
       db.groupActivity.count({ where: { actorId: userId, type: "created" } }),
       db.membership.count({ where: { userId } }),
       db.userProgress.findUnique({ where: { userId } }),
-      db.user.count({ where: { createdAt: { lte: self?.createdAt ?? new Date() } } }),
+      db.$queryRaw<{ rank: bigint }[]>`
+        SELECT (SELECT count(*) FROM "User" u2 WHERE u2."createdAt" <= u1."createdAt") AS rank
+        FROM "User" u1 WHERE u1.id = ${userId}
+      `,
     ]);
+  const accountRank = Number(rankRows[0]?.rank ?? 0);
 
   return {
     [ConditionStat.HOMEWORK_COMPLETED]: homeworkCompleted,

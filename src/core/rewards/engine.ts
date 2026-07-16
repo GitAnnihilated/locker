@@ -14,7 +14,12 @@ function startOfDay(d: Date): Date {
   return c;
 }
 
+// Read-first: the row exists for almost every call, so this avoids sending
+// a write (upsert) to Postgres on every single page load / action just to
+// confirm a row that's already there.
 async function getOrCreateProgress(userId: string) {
+  const existing = await db.userProgress.findUnique({ where: { userId } });
+  if (existing) return existing;
   return db.userProgress.upsert({ where: { userId }, create: { userId }, update: {} });
 }
 

@@ -51,6 +51,8 @@ model User {
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 
+  @@index([createdAt])
+
   memberships        Membership[]
   homeworkCreated    Homework[]          @relation("HomeworkAuthor")
   homeworkStatuses   HomeworkStatus[]
