@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { Avatar } from "@/ui/components/Avatar";
 import { Badge } from "@/ui/components/Badge";
 import { Button } from "@/ui/components/Button";
+import { CosmeticName } from "@/ui/components/CosmeticName";
+import type { EquippedCosmetics } from "@/core/rewards/cosmetics";
 import {
   removeMember,
   promoteModerator,
@@ -21,7 +23,7 @@ export function MemberRow({
   member: {
     userId: string;
     role: Role;
-    user: { id: string; name: string | null; email: string; image: string | null };
+    user: { id: string; name: string | null; email: string; image: string | null } & EquippedCosmetics;
   };
   viewerIsFounder: boolean;
 }) {
@@ -32,9 +34,11 @@ export function MemberRow({
     <div className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-0">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Avatar name={member.user.name} image={member.user.image} size={32} />
+          <Avatar name={member.user.name} image={member.user.image} size={32} frame={member.user.avatarFrame} />
           <div>
-            <p className="text-sm font-medium">{member.user.name ?? member.user.email}</p>
+            <p className="text-sm font-medium">
+              <CosmeticName color={member.user.nameColor}>{member.user.name ?? member.user.email}</CosmeticName>
+            </p>
             <p className="text-xs text-subtle">{member.user.email}</p>
           </div>
         </div>

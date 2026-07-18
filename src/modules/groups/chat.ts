@@ -2,12 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { PerkSlot } from "@prisma/client";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { handleActionError } from "@/lib/actionError";
 import { awardPoints } from "@/core/rewards/engine";
-import { COSMETIC_SLOTS, reduceCosmetics } from "@/core/rewards/cosmetics";
+import { cosmeticPerksSelect, withCosmetics } from "@/core/rewards/cosmetics";
 import { requireMembership } from "./actions";
 
 const memberSelect = {
@@ -16,19 +15,12 @@ const memberSelect = {
     name: true,
     nickname: true,
     image: true,
-    perks: {
-      where: { equipped: true, perk: { slot: { in: COSMETIC_SLOTS } } },
-      select: { perk: { select: { slot: true, value: true } } },
-    },
+    perks: cosmeticPerksSelect,
   },
 } as const;
 
-/** Flattens the joined equipped-perk rows into the plain cosmetic fields ChatAuthor expects. */
-function withCosmeticAuthor<T extends { author: { perks: { perk: { slot: PerkSlot; value: string | null } }[] } }>(
-  row: T,
-) {
-  const { perks, ...authorRest } = row.author;
-  return { ...row, author: { ...authorRest, ...reduceCosmetics(perks) } };
+function withCosmeticAuthor<T extends { author: Parameters<typeof withCosmetics>[0] }>(row: T) {
+  return { ...row, author: withCosmetics(row.author) };
 }
 
 /**

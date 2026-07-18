@@ -70,7 +70,7 @@ export function HomeworkItem({
             {relativeDay(item.dueAt)}
           </span>
           <span className="flex items-center gap-1">
-            <Avatar name={item.author.name} image={item.author.image} size={18} />
+            <Avatar name={item.author.name} image={item.author.image} size={18} frame={item.author.avatarFrame} />
             added it
           </span>
           {item.confirmations >= 2 ? (

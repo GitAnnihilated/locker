@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { Avatar } from "@/ui/components/Avatar";
+import { CosmeticName } from "@/ui/components/CosmeticName";
 import { Select } from "@/ui/components/Input";
 import { Button } from "@/ui/components/Button";
+import { reduceCosmetics } from "@/core/rewards/cosmetics";
 import { cn } from "@/lib/cn";
 import { relativeDay } from "@/lib/format";
 import { TASK_STATUS_META } from "../meta";
@@ -80,8 +82,11 @@ export function TaskItem({
                 name={task.assignee.nickname || task.assignee.name}
                 image={task.assignee.image}
                 size={18}
+                frame={reduceCosmetics(task.assignee.perks).avatarFrame}
               />
-              {task.assignee.nickname || task.assignee.name}
+              <CosmeticName color={reduceCosmetics(task.assignee.perks).nameColor}>
+                {task.assignee.nickname || task.assignee.name}
+              </CosmeticName>
             </span>
           )}
 

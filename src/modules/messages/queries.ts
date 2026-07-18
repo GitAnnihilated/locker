@@ -1,5 +1,7 @@
 import { db } from "@/core/db/client";
-import { COSMETIC_SLOTS, reduceCosmetics } from "@/core/rewards/cosmetics";
+import { cosmeticPerksSelect, withCosmetics } from "@/core/rewards/cosmetics";
+
+export { withCosmetics };
 
 const authorSelect = {
   select: {
@@ -7,20 +9,9 @@ const authorSelect = {
     name: true,
     nickname: true,
     image: true,
-    perks: {
-      where: { equipped: true, perk: { slot: { in: COSMETIC_SLOTS } } },
-      select: { perk: { select: { slot: true, value: true } } },
-    },
+    perks: cosmeticPerksSelect,
   },
 } as const;
-
-/** Flattens the joined equipped-perk rows into the plain cosmetic fields ChatAuthor expects. */
-export function withCosmetics<T extends { perks: { perk: { slot: (typeof COSMETIC_SLOTS)[number]; value: string | null } }[] }>(
-  user: T,
-) {
-  const { perks, ...rest } = user;
-  return { ...rest, ...reduceCosmetics(perks) };
-}
 
 /** All distinct schools a user belongs to, via their class memberships. */
 export async function getUserSchoolIds(userId: string): Promise<string[]> {

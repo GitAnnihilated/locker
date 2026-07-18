@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { Avatar } from "@/ui/components/Avatar";
 import { Badge } from "@/ui/components/Badge";
 import { Button } from "@/ui/components/Button";
+import { CosmeticName } from "@/ui/components/CosmeticName";
+import { reduceCosmetics } from "@/core/rewards/cosmetics";
 import { ROLE_META } from "../meta";
 import {
   promoteCoLeader,
@@ -25,14 +27,17 @@ export function MemberRow({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const name = member.user.nickname || member.user.name || "Member";
+  const cosmetics = reduceCosmetics(member.user.perks);
   const tone = member.role === "LEADER" ? "accent" : member.role === "CO_LEADER" ? "success" : "neutral";
 
   return (
     <div className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-0">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Avatar name={name} image={member.user.image} size={32} />
-          <p className="text-sm font-medium">{name}</p>
+          <Avatar name={name} image={member.user.image} size={32} frame={cosmetics.avatarFrame} />
+          <p className="text-sm font-medium">
+            <CosmeticName color={cosmetics.nameColor}>{name}</CosmeticName>
+          </p>
         </div>
 
         <div className="flex items-center gap-2">

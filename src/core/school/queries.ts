@@ -1,4 +1,5 @@
 import { db } from "@/core/db/client";
+import { cosmeticPerksSelect, withCosmetics } from "@/core/rewards/cosmetics";
 
 export interface SchoolSearchResult {
   id: string;
@@ -51,10 +52,13 @@ export async function getSchoolClasses(schoolId: string) {
 }
 
 export async function getSchoolModerators(schoolId: string) {
-  return db.schoolModerator.findMany({
+  const moderators = await db.schoolModerator.findMany({
     where: { schoolId },
-    include: { user: { select: { id: true, name: true, email: true, image: true } } },
+    include: {
+      user: { select: { id: true, name: true, email: true, image: true, perks: cosmeticPerksSelect } },
+    },
   });
+  return moderators.map((m) => ({ ...m, user: withCosmetics(m.user) }));
 }
 
 /** Classes a school founder/moderator is actively moderating (incl. removed, for review). */

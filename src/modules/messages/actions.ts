@@ -5,7 +5,7 @@ import { z } from "zod";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { handleActionError } from "@/lib/actionError";
-import { COSMETIC_SLOTS } from "@/core/rewards/cosmetics";
+import { cosmeticPerksSelect } from "@/core/rewards/cosmetics";
 import {
   getUserSchoolIds,
   searchSchoolUsers as searchSchoolUsersQuery,
@@ -95,10 +95,7 @@ export async function sendDirectMessage(
             name: true,
             nickname: true,
             image: true,
-            perks: {
-              where: { equipped: true, perk: { slot: { in: COSMETIC_SLOTS } } },
-              select: { perk: { select: { slot: true, value: true } } },
-            },
+            perks: cosmeticPerksSelect,
           },
         },
       },

@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/ui/components/Button";
+import { CosmeticName } from "@/ui/components/CosmeticName";
+import { reduceCosmetics } from "@/core/rewards/cosmetics";
 import { RESOURCE_TYPE_META } from "../meta";
 import { removeResource } from "../actions";
 import type { GroupDashboard } from "../queries";
@@ -17,6 +19,7 @@ export function ResourceItem({
   const [error, setError] = useState<string | null>(null);
   const meta = RESOURCE_TYPE_META[resource.type];
   const uploaderName = resource.uploader.nickname || resource.uploader.name || "Someone";
+  const uploaderColor = reduceCosmetics(resource.uploader.perks).nameColor;
 
   return (
     <div className="flex items-start gap-3 border-b border-border px-4 py-3 last:border-0">
@@ -29,7 +32,7 @@ export function ResourceItem({
         </a>
         {resource.description && <p className="mt-0.5 text-sm text-subtle">{resource.description}</p>}
         <p className="mt-1 text-xs text-subtle">
-          {meta.label} · shared by {uploaderName} ·{" "}
+          {meta.label} · shared by <CosmeticName color={uploaderColor}>{uploaderName}</CosmeticName> ·{" "}
           {new Date(resource.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
         </p>
         {error && <p className="mt-1 text-xs text-danger">{error}</p>}

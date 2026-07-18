@@ -1,7 +1,8 @@
 import { db } from "@/core/db/client";
+import { cosmeticPerksSelect } from "@/core/rewards/cosmetics";
 
 const memberSelect = {
-  select: { id: true, name: true, nickname: true, image: true },
+  select: { id: true, name: true, nickname: true, image: true, perks: cosmeticPerksSelect },
 } as const;
 
 /** Browse list for a class — also feeds the "does a duplicate already exist?" check. */

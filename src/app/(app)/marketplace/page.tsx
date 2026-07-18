@@ -8,6 +8,7 @@ import { ListingForm } from "@/modules/marketplace/components/ListingForm";
 import { Card, CardBody } from "@/ui/components/Card";
 import { EmptyState } from "@/ui/components/EmptyState";
 import { Avatar } from "@/ui/components/Avatar";
+import { CosmeticName } from "@/ui/components/CosmeticName";
 import { formatMoney } from "@/lib/format";
 
 export default async function MarketplacePage() {
@@ -56,8 +57,8 @@ export default async function MarketplacePage() {
                     <p className="mt-1 text-sm text-subtle">{l.description}</p>
                   )}
                   <div className="mt-3 flex items-center gap-2 text-xs text-subtle">
-                    <Avatar name={l.seller.name} image={l.seller.image} size={20} />
-                    {l.seller.name}
+                    <Avatar name={l.seller.name} image={l.seller.image} size={20} frame={l.seller.avatarFrame} />
+                    <CosmeticName color={l.seller.nameColor}>{l.seller.name}</CosmeticName>
                   </div>
                 </CardBody>
               </Card>

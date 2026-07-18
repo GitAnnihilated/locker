@@ -1,4 +1,5 @@
 import { db } from "@/core/db/client";
+import { cosmeticPerksSelect, withCosmetics } from "@/core/rewards/cosmetics";
 
 /**
  * The class homework board, joined with THIS user's done/not-done status.
@@ -9,7 +10,7 @@ export async function getHomeworkBoard(classId: string, userId: string) {
     where: { classId, deletedAt: null },
     orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
     include: {
-      author: { select: { id: true, name: true, image: true } },
+      author: { select: { id: true, name: true, image: true, perks: cosmeticPerksSelect } },
       statuses: { where: { userId }, select: { done: true } },
     },
   });
@@ -20,7 +21,7 @@ export async function getHomeworkBoard(classId: string, userId: string) {
     description: h.description,
     subject: h.subject,
     dueAt: h.dueAt,
-    author: h.author,
+    author: withCosmetics(h.author),
     confirmations: h.confirmations,
     done: h.statuses[0]?.done ?? false,
   }));

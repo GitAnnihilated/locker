@@ -24,6 +24,25 @@ export function reduceCosmetics(rows: { perk: { slot: PerkSlot; value: string | 
   return out;
 }
 
+/**
+ * Flattens a Prisma row carrying a `perks: { perk: { slot, value } }[]`
+ * relation (equipped-only, filtered in the query's `where`) into the plain
+ * cosmetic fields — the one shared shape every query site normalizes into,
+ * so the UI never has to know about the underlying UserPerk/Perk join.
+ */
+export function withCosmetics<T extends { perks: { perk: { slot: PerkSlot; value: string | null } }[] }>(
+  row: T,
+): Omit<T, "perks"> & EquippedCosmetics {
+  const { perks, ...rest } = row;
+  return { ...rest, ...reduceCosmetics(perks) };
+}
+
+/** The Prisma `select` fragment every query site uses to fetch equipped cosmetics for a user relation. */
+export const cosmeticPerksSelect = {
+  where: { equipped: true, perk: { slot: { in: COSMETIC_SLOTS } } },
+  select: { perk: { select: { slot: true, value: true } } },
+} as const;
+
 /** Perk.value theme keys (seeded in prisma/seed.ts) mapped to actual bubble classes. */
 export const CHAT_BUBBLE_THEMES: Record<string, string> = {
   mint: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100",

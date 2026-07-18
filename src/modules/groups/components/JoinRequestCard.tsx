@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import { Card, CardBody } from "@/ui/components/Card";
 import { Avatar } from "@/ui/components/Avatar";
+import { CosmeticName } from "@/ui/components/CosmeticName";
 import { Button } from "@/ui/components/Button";
+import { reduceCosmetics } from "@/core/rewards/cosmetics";
 import { relativeTime } from "@/lib/format";
 import { acceptJoinRequest, rejectJoinRequest } from "../actions";
 import type { GroupDashboard } from "../queries";
@@ -12,14 +14,17 @@ export function JoinRequestCard({ request }: { request: GroupDashboard["joinRequ
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const name = request.user.nickname || request.user.name || "A student";
+  const cosmetics = reduceCosmetics(request.user.perks);
 
   return (
     <Card>
       <CardBody>
         <div className="flex items-start gap-3">
-          <Avatar name={name} image={request.user.image} size={36} />
+          <Avatar name={name} image={request.user.image} size={36} frame={cosmetics.avatarFrame} />
           <div className="min-w-0 flex-1">
-            <p className="font-medium">{name}</p>
+            <p className="font-medium">
+              <CosmeticName color={cosmetics.nameColor}>{name}</CosmeticName>
+            </p>
             {request.message && (
               <p className="mt-1 text-sm text-subtle">&quot;{request.message}&quot;</p>
             )}
