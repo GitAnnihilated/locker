@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { enabledModules } from "@/core/modules/registry";
 import { Logo } from "@/ui/brand/Logo";
+import { LinkPendingFade } from "@/ui/components/LinkPendingFade";
 import { cn } from "@/lib/cn";
 
 export function Sidebar() {
@@ -22,12 +23,14 @@ export function Sidebar() {
             key={m.id}
             href={m.href}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition duration ease",
+              "rounded-md px-3 py-2 text-sm font-medium transition duration ease",
               active ? "bg-accent-soft text-accent" : "text-subtle hover:bg-muted hover:text-text",
             )}
           >
-            <span className="text-base">{m.icon}</span>
-            {m.name}
+            <LinkPendingFade className="flex items-center gap-3">
+              <span className="text-base">{m.icon}</span>
+              {m.name}
+            </LinkPendingFade>
           </Link>
         );
       })}

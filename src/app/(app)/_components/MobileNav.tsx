@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { enabledModules } from "@/core/modules/registry";
+import { LinkPendingFade } from "@/ui/components/LinkPendingFade";
 import { cn } from "@/lib/cn";
 
 /**
@@ -26,12 +27,14 @@ export function MobileNav() {
             key={m.id}
             href={m.href}
             className={cn(
-              "flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition duration ease",
+              "flex min-w-0 flex-1 py-2.5 text-[11px] font-medium transition duration ease",
               active ? "text-accent" : "text-faint",
             )}
           >
-            <span className="text-lg leading-none">{m.icon}</span>
-            {m.name.split(" ")[0]}
+            <LinkPendingFade className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
+              <span className="text-lg leading-none">{m.icon}</span>
+              <span className="w-full truncate text-center">{m.name.split(" ")[0]}</span>
+            </LinkPendingFade>
           </Link>
         );
       })}
