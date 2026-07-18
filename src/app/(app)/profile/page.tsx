@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/core/auth/session";
 import { getActiveMembership } from "@/core/membership/queries";
 import { getProfile, getProfileStats } from "@/modules/profile/queries";
+import { getEquippedCosmetics } from "@/core/rewards/queries";
 import { ProfileHeader } from "@/modules/profile/components/ProfileHeader";
 import { Card, CardBody } from "@/ui/components/Card";
 import { Badge } from "@/ui/components/Badge";
@@ -10,10 +11,11 @@ import { StatTile } from "@/ui/components/StatTile";
 
 export default async function ProfilePage() {
   const user = await requireUser();
-  const [profile, stats, membership] = await Promise.all([
+  const [profile, stats, membership, cosmetics] = await Promise.all([
     getProfile(user.id),
     getProfileStats(user.id),
     getActiveMembership(user.id),
+    getEquippedCosmetics(user.id),
   ]);
 
   if (!profile) {
@@ -24,7 +26,7 @@ export default async function ProfilePage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <Card>
         <CardBody>
-          <ProfileHeader profile={profile} />
+          <ProfileHeader profile={profile} cosmetics={cosmetics} />
         </CardBody>
       </Card>
 

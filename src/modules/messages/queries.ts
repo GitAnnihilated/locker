@@ -1,6 +1,26 @@
 import { db } from "@/core/db/client";
+import { COSMETIC_SLOTS, reduceCosmetics } from "@/core/rewards/cosmetics";
 
-const authorSelect = { select: { id: true, name: true, nickname: true, image: true } } as const;
+const authorSelect = {
+  select: {
+    id: true,
+    name: true,
+    nickname: true,
+    image: true,
+    perks: {
+      where: { equipped: true, perk: { slot: { in: COSMETIC_SLOTS } } },
+      select: { perk: { select: { slot: true, value: true } } },
+    },
+  },
+} as const;
+
+/** Flattens the joined equipped-perk rows into the plain cosmetic fields ChatAuthor expects. */
+export function withCosmetics<T extends { perks: { perk: { slot: (typeof COSMETIC_SLOTS)[number]; value: string | null } }[] }>(
+  user: T,
+) {
+  const { perks, ...rest } = user;
+  return { ...rest, ...reduceCosmetics(perks) };
+}
 
 /** All distinct schools a user belongs to, via their class memberships. */
 export async function getUserSchoolIds(userId: string): Promise<string[]> {
@@ -40,7 +60,7 @@ export async function getConversations(userId: string) {
       const unread = !!lastMessage && lastMessage.senderId !== userId && (!lastReadAt || lastMessage.createdAt > lastReadAt);
       return {
         id: c.id,
-        other,
+        other: withCosmetics(other),
         lastMessage,
         unread,
         sortAt: lastMessage?.createdAt ?? c.createdAt,
@@ -61,7 +81,7 @@ export async function getConversationForViewer(conversationId: string, userId: s
     return null;
   }
   const other = conversation.user1Id === userId ? conversation.user2 : conversation.user1;
-  return { id: conversation.id, other };
+  return { id: conversation.id, other: withCosmetics(other) };
 }
 
 /** Verifies the viewer is a participant before returning anything. */
@@ -85,7 +105,7 @@ export async function getConversationMessages(conversationId: string, userId: st
     content: m.content,
     createdAt: m.createdAt,
     authorId: m.senderId,
-    author: m.sender,
+    author: withCosmetics(m.sender),
   }));
 }
 

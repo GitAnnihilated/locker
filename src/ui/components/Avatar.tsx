@@ -16,11 +16,14 @@ export function Avatar({
   image,
   size = 36,
   className,
+  frame,
 }: {
   name?: string | null;
   image?: string | null;
   size?: number;
   className?: string;
+  /** Equipped AVATAR_FRAME perk value — a Tailwind ring color class, e.g. "ring-amber-700". */
+  frame?: string | null;
 }) {
   const [errored, setErrored] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -30,6 +33,7 @@ export function Avatar({
     .slice(0, 2)
     .join("")
     .toUpperCase();
+  const frameClass = frame ? cn("ring-2 ring-offset-1 ring-offset-surface", frame) : undefined;
 
   // The native `error` event doesn't bubble, and a server-rendered <img>
   // can finish failing before hydration attaches the onError listener —
@@ -50,7 +54,7 @@ export function Avatar({
         alt={name ?? ""}
         width={size}
         height={size}
-        className={cn("shrink-0 rounded-full object-cover", className)}
+        className={cn("shrink-0 rounded-full object-cover", frameClass, className)}
         onError={() => setErrored(true)}
       />
     );
@@ -61,6 +65,7 @@ export function Avatar({
       style={{ width: size, height: size, fontSize: Math.max(10, size * 0.4) }}
       className={cn(
         "flex shrink-0 items-center justify-center rounded-full bg-accent-soft font-semibold text-accent",
+        frameClass,
         className,
       )}
     >

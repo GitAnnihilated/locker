@@ -3,6 +3,10 @@ export type ChatAuthor = {
   name: string | null;
   nickname: string | null;
   image: string | null;
+  /** Equipped cosmetic perk values, already reduced server-side — see core/rewards/cosmetics.ts */
+  nameColor?: string;
+  avatarFrame?: string;
+  chatBubble?: string;
 };
 
 /** Shared shape both Group Chat and Direct Messages normalize into. */

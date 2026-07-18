@@ -5,10 +5,12 @@ import { z } from "zod";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { handleActionError } from "@/lib/actionError";
+import { COSMETIC_SLOTS } from "@/core/rewards/cosmetics";
 import {
   getUserSchoolIds,
   searchSchoolUsers as searchSchoolUsersQuery,
   getConversationMessages as getConversationMessagesQuery,
+  withCosmetics,
 } from "./queries";
 import type { DirectChatMessage } from "./queries";
 
@@ -86,7 +88,20 @@ export async function sendDirectMessage(
 
     const created = await db.directMessage.create({
       data: { conversationId, senderId: user.id, content: parsed.data.content },
-      include: { sender: { select: { id: true, name: true, nickname: true, image: true } } },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            nickname: true,
+            image: true,
+            perks: {
+              where: { equipped: true, perk: { slot: { in: COSMETIC_SLOTS } } },
+              select: { perk: { select: { slot: true, value: true } } },
+            },
+          },
+        },
+      },
     });
 
     const message: DirectChatMessage = {
@@ -94,7 +109,7 @@ export async function sendDirectMessage(
       content: created.content,
       createdAt: created.createdAt,
       authorId: created.senderId,
-      author: created.sender,
+      author: withCosmetics(created.sender),
     };
 
     return { message };

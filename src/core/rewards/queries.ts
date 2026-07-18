@@ -1,5 +1,8 @@
 import { db } from "@/core/db/client";
 import { computeUserStats } from "./stats";
+import { COSMETIC_SLOTS, reduceCosmetics, type EquippedCosmetics } from "./cosmetics";
+
+export type { EquippedCosmetics };
 
 // Read-first: avoids sending a write (upsert) to Postgres on every page
 // load just to confirm a row that's already there almost every time.
@@ -80,6 +83,33 @@ export async function getPerkStore(userId: string) {
       };
     }),
   };
+}
+
+/** For single-user, low-cardinality contexts: header, own profile page. */
+export async function getEquippedCosmetics(userId: string): Promise<EquippedCosmetics> {
+  const rows = await db.userPerk.findMany({
+    where: { userId, equipped: true, perk: { slot: { in: COSMETIC_SLOTS } } },
+    select: { perk: { select: { slot: true, value: true } } },
+  });
+  return reduceCosmetics(rows);
+}
+
+/** Batched for list contexts (leaderboard, member rosters) — one query, not N. */
+export async function getEquippedCosmeticsForUsers(userIds: string[]): Promise<Map<string, EquippedCosmetics>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await db.userPerk.findMany({
+    where: { userId: { in: userIds }, equipped: true, perk: { slot: { in: COSMETIC_SLOTS } } },
+    select: { userId: true, perk: { select: { slot: true, value: true } } },
+  });
+  const byUser = new Map<string, { perk: { slot: (typeof rows)[number]["perk"]["slot"]; value: string | null } }[]>();
+  for (const r of rows) {
+    const list = byUser.get(r.userId) ?? [];
+    list.push({ perk: r.perk });
+    byUser.set(r.userId, list);
+  }
+  const result = new Map<string, EquippedCosmetics>();
+  for (const [userId, list] of byUser) result.set(userId, reduceCosmetics(list));
+  return result;
 }
 
 export async function getPendingCelebrations(userId: string) {

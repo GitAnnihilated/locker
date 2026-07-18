@@ -2,15 +2,34 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { PerkSlot } from "@prisma/client";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { handleActionError } from "@/lib/actionError";
 import { awardPoints } from "@/core/rewards/engine";
+import { COSMETIC_SLOTS, reduceCosmetics } from "@/core/rewards/cosmetics";
 import { requireMembership } from "./actions";
 
 const memberSelect = {
-  select: { id: true, name: true, nickname: true, image: true },
+  select: {
+    id: true,
+    name: true,
+    nickname: true,
+    image: true,
+    perks: {
+      where: { equipped: true, perk: { slot: { in: COSMETIC_SLOTS } } },
+      select: { perk: { select: { slot: true, value: true } } },
+    },
+  },
 } as const;
+
+/** Flattens the joined equipped-perk rows into the plain cosmetic fields ChatAuthor expects. */
+function withCosmeticAuthor<T extends { author: { perks: { perk: { slot: PerkSlot; value: string | null } }[] } }>(
+  row: T,
+) {
+  const { perks, ...authorRest } = row.author;
+  return { ...row, author: { ...authorRest, ...reduceCosmetics(perks) } };
+}
 
 /**
  * In-project chat, scoped to Group Finder only. Polled from the client
@@ -30,7 +49,7 @@ export async function getGroupMessages(groupId: string) {
     include: { author: memberSelect },
   });
 
-  return messages;
+  return messages.map(withCosmeticAuthor);
 }
 
 export type GroupChatMessage = Awaited<ReturnType<typeof getGroupMessages>>[number];
@@ -59,7 +78,7 @@ export async function sendGroupMessage(
       return { error: "Message can't be empty or over 2000 characters." };
     }
 
-    const message = await db.groupMessage.create({
+    const created = await db.groupMessage.create({
       data: { groupId, authorId: user.id, content: parsed.data.content },
       include: { author: memberSelect },
     });
@@ -70,7 +89,7 @@ export async function sendGroupMessage(
     // up new messages via the client-side poll, not this.
     revalidatePath(`/groups/${groupId}`);
 
-    return { message };
+    return { message: withCosmeticAuthor(created) };
   } catch (e) {
     return handleActionError(e);
   }

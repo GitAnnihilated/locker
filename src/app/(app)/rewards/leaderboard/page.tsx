@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { requireUser } from "@/core/auth/session";
 import { getActiveMembership } from "@/core/membership/queries";
-import { getLeaderboard, type LeaderboardScope } from "@/core/rewards/queries";
+import { getLeaderboard, getEquippedCosmeticsForUsers, type LeaderboardScope } from "@/core/rewards/queries";
 import { Avatar } from "@/ui/components/Avatar";
+import { CosmeticName } from "@/ui/components/CosmeticName";
 import { Card, CardBody } from "@/ui/components/Card";
 import { EmptyState } from "@/ui/components/EmptyState";
 import { cn } from "@/lib/cn";
@@ -27,6 +28,7 @@ export default async function LeaderboardPage({
 
   const membership = await getActiveMembership(user.id);
   const rows = await getLeaderboard(scope, { schoolId: membership?.schoolId });
+  const cosmetics = await getEquippedCosmeticsForUsers(rows.map((r) => r.user.id));
 
   return (
     <div className="space-y-4">
@@ -53,6 +55,7 @@ export default async function LeaderboardPage({
             {rows.map((row, i) => {
               const mine = row.user.id === user.id;
               const name = row.user.nickname || row.user.name || "Member";
+              const rowCosmetics = cosmetics.get(row.user.id);
               return (
                 <div
                   key={row.user.id}
@@ -64,9 +67,9 @@ export default async function LeaderboardPage({
                   <span className="w-7 shrink-0 text-center text-sm font-semibold text-subtle">
                     {MEDALS[i] ?? i + 1}
                   </span>
-                  <Avatar name={name} image={row.user.image} size={32} />
+                  <Avatar name={name} image={row.user.image} size={32} frame={rowCosmetics?.avatarFrame} />
                   <p className={cn("min-w-0 flex-1 truncate text-sm", mine ? "font-semibold text-accent" : "font-medium")}>
-                    {name}
+                    <CosmeticName color={rowCosmetics?.nameColor}>{name}</CosmeticName>
                     {mine && " (you)"}
                   </p>
                   <p className="shrink-0 text-sm font-semibold">{row.score.toLocaleString()}</p>

@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { Avatar } from "@/ui/components/Avatar";
 import { Button } from "@/ui/components/Button";
+import { CosmeticName } from "@/ui/components/CosmeticName";
+import { CHAT_BUBBLE_THEMES } from "@/core/rewards/cosmetics";
 import { cn } from "@/lib/cn";
 import { useChat, type OptimisticMessage } from "./useChat";
 import type { ChatMessage, SendResult } from "./types";
@@ -87,19 +89,24 @@ export function ChatThread({
             const name = m.author.nickname || m.author.name || "Member";
             const failed = "status" in m && m.status === "failed";
             const sending = "status" in m && m.status === "sending";
+            const bubbleTheme = m.author.chatBubble ? CHAT_BUBBLE_THEMES[m.author.chatBubble] : undefined;
             return (
               <div key={key} className={cn("flex items-end gap-2", mine && "flex-row-reverse")}>
-                <Avatar name={name} image={m.author.image} size={26} />
+                <Avatar name={name} image={m.author.image} size={26} frame={m.author.avatarFrame} />
                 <div className={cn("flex flex-col", mine && "items-end")}>
                   <div
                     className={cn(
                       "max-w-[75%] rounded-lg px-3 py-2 text-sm",
-                      mine ? "bg-accent text-accent-fg" : "bg-muted",
+                      bubbleTheme ?? (mine ? "bg-accent text-accent-fg" : "bg-muted"),
                       sending && "opacity-60",
                       failed && "bg-danger-soft text-danger opacity-90",
                     )}
                   >
-                    {!mine && <p className="mb-0.5 text-2xs font-semibold text-subtle">{name}</p>}
+                    {!mine && (
+                      <CosmeticName color={m.author.nameColor} className="mb-0.5 block text-2xs font-semibold text-subtle">
+                        {name}
+                      </CosmeticName>
+                    )}
                     <p className="whitespace-pre-wrap break-words">{m.content}</p>
                   </div>
                   {failed && (

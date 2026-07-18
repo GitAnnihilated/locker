@@ -3,8 +3,10 @@ import { requireDbUser } from "@/core/auth/session";
 import { getRecentNotifications, getUnreadCount } from "@/core/notifications/queries";
 import { NotificationBell } from "@/core/notifications/components/NotificationBell";
 import { recordDailyActivity } from "@/core/rewards/engine";
+import { getEquippedCosmetics } from "@/core/rewards/queries";
 import { CelebrationQueue } from "@/modules/rewards/components/CelebrationQueue";
 import { Avatar } from "@/ui/components/Avatar";
+import { CosmeticName } from "@/ui/components/CosmeticName";
 import { LogoutButton } from "@/core/auth/components/LogoutButton";
 import { LogoMark } from "@/ui/brand/Logo";
 import { Sidebar } from "./_components/Sidebar";
@@ -23,10 +25,11 @@ export default async function AppLayout({
   // "meaningful daily activity" actually requires (no separate check-in
   // button to remember). Runs alongside the notification fetches since
   // neither depends on the other.
-  const [, notifications, unreadCount] = await Promise.all([
+  const [, notifications, unreadCount, cosmetics] = await Promise.all([
     recordDailyActivity(user.id),
     getRecentNotifications(user.id),
     getUnreadCount(user.id),
+    getEquippedCosmetics(user.id),
   ]);
 
   return (
@@ -43,10 +46,10 @@ export default async function AppLayout({
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <NotificationBell notifications={notifications} unreadCount={unreadCount} />
             <Link href="/profile" className="flex items-center gap-2">
-              <span className="hidden text-sm text-subtle sm:inline">
+              <CosmeticName color={cosmetics.nameColor} className="hidden text-sm text-subtle sm:inline">
                 {user.nickname || user.name}
-              </span>
-              <Avatar name={user.name} image={user.image} size={28} />
+              </CosmeticName>
+              <Avatar name={user.nickname || user.name} image={user.image} size={28} frame={cosmetics.avatarFrame} />
             </Link>
             <LogoutButton />
           </div>
