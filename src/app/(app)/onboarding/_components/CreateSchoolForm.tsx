@@ -15,12 +15,21 @@ import type { SchoolSearchResult } from "@/core/school/queries";
  * school gets created. Skips straight to creating when nothing's similar,
  * so the common case stays one click.
  */
-export function CreateSchoolForm() {
+export function CreateSchoolForm({
+  orgUnit = "School",
+  classUnit = "class",
+  classUnitPlural = "classes",
+}: {
+  orgUnit?: string;
+  classUnit?: string;
+  classUnitPlural?: string;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [similar, setSimilar] = useState<SchoolSearchResult[] | null>(null);
+  const orgLower = orgUnit.toLowerCase();
 
   async function doCreate() {
     setError(null);
@@ -41,7 +50,7 @@ export function CreateSchoolForm() {
   function handleCheck() {
     setError(null);
     if (name.trim().length < 2) {
-      setError("Enter a school name");
+      setError(`Enter a ${orgLower} name`);
       return;
     }
     start(async () => {
@@ -58,7 +67,7 @@ export function CreateSchoolForm() {
     return (
       <div className="space-y-3">
         <p className="text-sm text-subtle">
-          Found {similar.length} school{similar.length === 1 ? "" : "s"} with a similar name — is it one of these?
+          Found {similar.length} {orgLower}{similar.length === 1 ? "" : "s"} with a similar name — is it one of these?
         </p>
 
         <div className="space-y-2">
@@ -71,7 +80,7 @@ export function CreateSchoolForm() {
             >
               <span className="font-medium">{s.name}</span>
               <Badge tone="neutral">
-                {s.classCount} class{s.classCount === 1 ? "" : "es"}
+                {s.classCount} {s.classCount === 1 ? classUnit.toLowerCase() : classUnitPlural.toLowerCase()}
               </Badge>
             </button>
           ))}
@@ -98,11 +107,11 @@ export function CreateSchoolForm() {
           name="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Lincoln High School"
+          placeholder={orgUnit === "College" ? "e.g. State University" : "e.g. Lincoln High School"}
           required
         />
         <Button type="button" variant="secondary" disabled={pending} onClick={handleCheck}>
-          {pending ? "Checking…" : "Create school"}
+          {pending ? "Checking…" : `Create ${orgLower}`}
         </Button>
       </div>
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}

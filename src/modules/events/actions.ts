@@ -6,6 +6,7 @@ import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { getActiveMembership } from "@/core/membership/queries";
 import { handleActionError } from "@/lib/actionError";
+import { awardPoints } from "@/core/rewards/engine";
 
 const eventSchema = z.object({
   title: z.string().trim().min(2, "Give it a title").max(120),
@@ -32,7 +33,7 @@ export async function createEvent(formData: FormData): Promise<{ error: string }
     const startAt = new Date(parsed.data.startAt);
     if (Number.isNaN(startAt.getTime())) throw new Error("Invalid date/time");
 
-    await db.event.create({
+    const event = await db.event.create({
       data: {
         schoolId: membership.schoolId,
         organizerId: user.id,
@@ -42,6 +43,8 @@ export async function createEvent(formData: FormData): Promise<{ error: string }
         startAt,
       },
     });
+
+    await awardPoints(user.id, "event_created", event.id);
 
     revalidatePath("/events");
   } catch (e) {
@@ -57,6 +60,9 @@ export async function rsvpEvent(eventId: string): Promise<{ error: string } | un
       create: { eventId, userId: user.id },
       update: {},
     });
+
+    await awardPoints(user.id, "event_rsvp", eventId);
+
     revalidatePath("/events");
   } catch (e) {
     return handleActionError(e);

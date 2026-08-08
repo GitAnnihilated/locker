@@ -1,4 +1,5 @@
 import { db } from "@/core/db/client";
+import { cosmeticPerksSelect, withCosmetics } from "@/core/rewards/cosmetics";
 
 /** Upcoming events at the student's school (college), with the viewer's RSVP state. */
 export async function getUpcomingEvents(schoolId: string, viewerId: string) {
@@ -7,7 +8,7 @@ export async function getUpcomingEvents(schoolId: string, viewerId: string) {
     orderBy: { startAt: "asc" },
     take: 100,
     include: {
-      organizer: { select: { id: true, name: true } },
+      organizer: { select: { id: true, name: true, perks: cosmeticPerksSelect } },
       club: { select: { id: true, name: true } },
       class: { select: { id: true, name: true, courseCode: true } },
       attendees: { where: { userId: viewerId }, select: { id: true } },
@@ -16,6 +17,7 @@ export async function getUpcomingEvents(schoolId: string, viewerId: string) {
   });
   return events.map((e) => ({
     ...e,
+    organizer: withCosmetics(e.organizer),
     attendeeCount: e._count.attendees,
     isAttending: e.attendees.length > 0,
   }));

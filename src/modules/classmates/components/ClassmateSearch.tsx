@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { Avatar } from "@/ui/components/Avatar";
+import { CosmeticName } from "@/ui/components/CosmeticName";
 import { Input, Select } from "@/ui/components/Input";
 import { Button } from "@/ui/components/Button";
 import { searchClassmates } from "../actions";
@@ -62,9 +63,11 @@ export function ClassmateSearch({ courses }: { courses: { id: string; name: stri
           return (
             <div key={r.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
               <div className="flex min-w-0 items-center gap-3">
-                <Avatar name={name} image={r.image} size={32} />
+                <Avatar name={name} image={r.image} size={32} frame={r.avatarFrame} />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{name}</p>
+                  <p className="truncate text-sm font-medium">
+                    <CosmeticName color={r.nameColor}>{name}</CosmeticName>
+                  </p>
                   {courseLabel && <p className="truncate text-xs text-subtle">{courseLabel}</p>}
                 </div>
               </div>

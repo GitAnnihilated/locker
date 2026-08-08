@@ -46,8 +46,8 @@ export function ProjectHeader({
               Edit
             </Button>
           )}
-          {canGovern && <ArchiveGroupButton groupId={group.id} />}
-          {isMember && <LeaveGroupButton groupId={group.id} isLeader={canGovern} />}
+          {canGovern && <ArchiveGroupButton groupId={group.id} kind={group.kind} />}
+          {isMember && <LeaveGroupButton groupId={group.id} isLeader={canGovern} kind={group.kind} />}
         </div>
       </div>
 

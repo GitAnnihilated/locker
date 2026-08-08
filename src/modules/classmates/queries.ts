@@ -1,5 +1,6 @@
 import { db } from "@/core/db/client";
 import { getUserSchoolIds } from "@/modules/messages/queries";
+import { cosmeticPerksSelect, withCosmetics } from "@/core/rewards/cosmetics";
 
 /**
  * Same scoping discipline as messages/queries.ts's searchSchoolUsers — never
@@ -31,6 +32,7 @@ export async function searchClassmates(viewerId: string, query: string, courseId
       name: true,
       nickname: true,
       image: true,
+      perks: cosmeticPerksSelect,
       memberships: {
         where: { schoolId: { in: schoolIds } },
         select: { class: { select: { id: true, name: true, courseCode: true } } },
@@ -41,7 +43,10 @@ export async function searchClassmates(viewerId: string, query: string, courseId
     orderBy: { name: "asc" },
   });
 
-  return users;
+  return users.map((u) => {
+    const { memberships, ...rest } = u;
+    return { ...withCosmetics(rest), memberships };
+  });
 }
 
 export type Classmate = Awaited<ReturnType<typeof searchClassmates>>[number];

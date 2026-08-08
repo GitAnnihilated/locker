@@ -1,4 +1,15 @@
-import type { GroupRole, ProjectStatus, ResourceType, TaskStatus } from "@prisma/client";
+import type { GroupKind, GroupRole, ProjectStatus, ResourceType, TaskStatus } from "@prisma/client";
+
+/**
+ * The single place "project" vs "study group" copy is decided — every
+ * component that mentions the noun (archive/leave/join/delete confirmations,
+ * "not found", etc.) reads it from here instead of hardcoding "project",
+ * since /groups/[groupId] is the exact same detail page for both kinds.
+ */
+export const GROUP_KIND_META: Record<GroupKind, { noun: string; verb: string }> = {
+  PROJECT: { noun: "project", verb: "Project" },
+  STUDY: { noun: "study group", verb: "Study group" },
+};
 
 export const STATUS_META: Record<ProjectStatus, { label: string; tone: "neutral" | "accent" | "success" | "warning" }> = {
   UPCOMING: { label: "Upcoming", tone: "neutral" },

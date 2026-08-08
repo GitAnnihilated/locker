@@ -103,12 +103,12 @@ export default async function OnboardingPage({
       <Card>
         <CardHeader className="font-semibold">Search {t.orgUnit.toLowerCase()}s</CardHeader>
         <CardBody className="space-y-3">
-          <SchoolSearch />
+          <SchoolSearch orgUnit={t.orgUnit} classUnit={t.classUnit} classUnitPlural={t.classUnitPlural} />
           <div className="border-t border-border pt-3">
             <p className="mb-2 text-xs font-medium text-subtle">
               Can&apos;t find your {t.orgUnit.toLowerCase()}? You&apos;ll be its founder.
             </p>
-            <CreateSchoolForm />
+            <CreateSchoolForm orgUnit={t.orgUnit} classUnit={t.classUnit} classUnitPlural={t.classUnitPlural} />
           </div>
         </CardBody>
       </Card>

@@ -1,4 +1,5 @@
 import { db } from "@/core/db/client";
+import { cosmeticPerksSelect, withCosmetics } from "@/core/rewards/cosmetics";
 
 /** Every club at the student's school (college), with a member count and whether the viewer's already in it. */
 export async function getSchoolClubs(schoolId: string, viewerId: string) {
@@ -28,7 +29,9 @@ export async function getClubDetail(clubId: string, viewerId: string) {
       founder: { select: { id: true, name: true, image: true } },
       members: {
         orderBy: { joinedAt: "asc" },
-        include: { user: { select: { id: true, name: true, nickname: true, image: true } } },
+        include: {
+          user: { select: { id: true, name: true, nickname: true, image: true, perks: cosmeticPerksSelect } },
+        },
       },
       events: {
         where: { deletedAt: null, startAt: { gte: new Date() } },
@@ -40,5 +43,9 @@ export async function getClubDetail(clubId: string, viewerId: string) {
   if (!club || club.deletedAt) return null;
 
   const isMember = club.members.some((m) => m.userId === viewerId);
-  return { ...club, isMember };
+  return {
+    ...club,
+    isMember,
+    members: club.members.map((m) => ({ ...m, user: withCosmetics(m.user) })),
+  };
 }

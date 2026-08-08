@@ -6,6 +6,7 @@ import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { getActiveMembership } from "@/core/membership/queries";
 import { handleActionError } from "@/lib/actionError";
+import { awardPoints } from "@/core/rewards/engine";
 
 const clubSchema = z.object({
   name: z.string().trim().min(2, "Name it").max(80),
@@ -38,6 +39,8 @@ export async function createClub(formData: FormData): Promise<{ error: string } 
       },
     });
 
+    await awardPoints(user.id, "club_created", club.id);
+
     revalidatePath("/clubs");
     return undefined;
   } catch (e) {
@@ -53,6 +56,9 @@ export async function joinClub(clubId: string): Promise<{ error: string } | unde
       create: { clubId, userId: user.id },
       update: {},
     });
+
+    await awardPoints(user.id, "club_joined", clubId);
+
     revalidatePath("/clubs");
     revalidatePath(`/clubs/${clubId}`);
   } catch (e) {

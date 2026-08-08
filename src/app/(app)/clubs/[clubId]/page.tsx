@@ -1,6 +1,7 @@
 import { requireUser } from "@/core/auth/session";
 import { getClubDetail } from "@/modules/clubs/queries";
 import { Avatar } from "@/ui/components/Avatar";
+import { CosmeticName } from "@/ui/components/CosmeticName";
 import { Badge } from "@/ui/components/Badge";
 import { Card, CardBody, CardHeader } from "@/ui/components/Card";
 import { EmptyState } from "@/ui/components/EmptyState";
@@ -48,9 +49,11 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ clu
         <CardBody className="flex flex-wrap gap-3 p-4">
           {club.members.map((m) => (
             <div key={m.id} className="flex items-center gap-2">
-              <Avatar name={m.user.nickname || m.user.name} image={m.user.image} size={28} />
+              <Avatar name={m.user.nickname || m.user.name} image={m.user.image} size={28} frame={m.user.avatarFrame} />
               <div>
-                <p className="text-sm font-medium">{m.user.nickname || m.user.name}</p>
+                <p className="text-sm font-medium">
+                  <CosmeticName color={m.user.nameColor}>{m.user.nickname || m.user.name}</CosmeticName>
+                </p>
                 {m.role === "ORGANIZER" && <Badge tone="accent">Organizer</Badge>}
               </div>
             </div>

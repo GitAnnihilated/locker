@@ -6,7 +6,7 @@ import { Badge } from "@/ui/components/Badge";
 import { Button } from "@/ui/components/Button";
 import { CosmeticName } from "@/ui/components/CosmeticName";
 import { reduceCosmetics } from "@/core/rewards/cosmetics";
-import { ROLE_META } from "../meta";
+import { ROLE_META, GROUP_KIND_META } from "../meta";
 import {
   promoteCoLeader,
   demoteCoLeader,
@@ -14,21 +14,25 @@ import {
   removeMember,
 } from "../actions";
 import type { GroupDashboard } from "../queries";
+import type { GroupKind } from "@prisma/client";
 
 export function MemberRow({
   groupId,
   member,
   viewerIsLeader,
+  kind = "PROJECT",
 }: {
   groupId: string;
   member: GroupDashboard["members"][number];
   viewerIsLeader: boolean;
+  kind?: GroupKind;
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const name = member.user.nickname || member.user.name || "Member";
   const cosmetics = reduceCosmetics(member.user.perks);
   const tone = member.role === "LEADER" ? "accent" : member.role === "CO_LEADER" ? "success" : "neutral";
+  const { noun } = GROUP_KIND_META[kind];
 
   return (
     <div className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-0">
@@ -93,7 +97,7 @@ export function MemberRow({
                 variant="danger"
                 disabled={pending}
                 onClick={() => {
-                  if (!confirm(`Remove ${name} from the project?`)) return;
+                  if (!confirm(`Remove ${name} from the ${noun}?`)) return;
                   start(async () => {
                     const result = await removeMember(groupId, member.userId);
                     setError(result?.error ?? null);

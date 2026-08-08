@@ -11,7 +11,15 @@ import type { SchoolSearchResult } from "@/core/school/queries";
  * Live, debounced school search. No approval queue, no admin allowlist — any
  * school a student has created is instantly findable here.
  */
-export function SchoolSearch() {
+export function SchoolSearch({
+  orgUnit = "School",
+  classUnit = "class",
+  classUnitPlural = "classes",
+}: {
+  orgUnit?: string;
+  classUnit?: string;
+  classUnitPlural?: string;
+}) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SchoolSearchResult[]>([]);
   const [pending, start] = useTransition();
@@ -36,7 +44,7 @@ export function SchoolSearch() {
   return (
     <div>
       <Input
-        placeholder="Search for your school…"
+        placeholder={`Search for your ${orgUnit.toLowerCase()}…`}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -53,7 +61,7 @@ export function SchoolSearch() {
             >
               <span className="font-medium">{s.name}</span>
               <Badge tone="neutral">
-                {s.classCount} class{s.classCount === 1 ? "" : "es"}
+                {s.classCount} {s.classCount === 1 ? classUnit.toLowerCase() : classUnitPlural.toLowerCase()}
               </Badge>
             </Link>
           ))}
@@ -62,7 +70,7 @@ export function SchoolSearch() {
 
       {!pending && searched && results.length === 0 && (
         <p className="mt-2 text-sm text-subtle">
-          No school found for &quot;{query}&quot;. Create it below.
+          No {orgUnit.toLowerCase()} found for &quot;{query}&quot;. Create it below.
         </p>
       )}
     </div>

@@ -1,4 +1,11 @@
 import { db } from "@/core/db/client";
+import { cosmeticPerksSelect } from "@/core/rewards/cosmetics";
+
+// Matches groups/queries.ts's own memberSelect exactly — GroupCard (and
+// other Group Finder components shared with School) already expect
+// `perks` on every member.user they render, so this needs to carry it too
+// even though a mini overlapping-avatar stack doesn't itself use it yet.
+const groupMemberSelect = { id: true, name: true, nickname: true, image: true, perks: cosmeticPerksSelect } as const;
 
 /**
  * A COLLEGE user's "courses" are just their Classes — a Class doubles as a
@@ -99,7 +106,7 @@ export async function getMyGroupsByKind(userId: string, kind: "PROJECT" | "STUDY
     orderBy: { createdAt: "desc" },
     include: {
       class: { select: { id: true, name: true, courseCode: true } },
-      members: { include: { user: { select: { id: true, name: true, nickname: true, image: true } } } },
+      members: { include: { user: { select: groupMemberSelect } } },
       _count: { select: { tasks: true } },
     },
   });
@@ -124,7 +131,7 @@ export async function getCourseGroups(classId: string, kind: "PROJECT" | "STUDY"
     where: { classId, kind, deletedAt: null, status: { not: "ARCHIVED" } },
     orderBy: { createdAt: "desc" },
     include: {
-      members: { include: { user: { select: { id: true, name: true, nickname: true, image: true } } } },
+      members: { include: { user: { select: groupMemberSelect } } },
       _count: { select: { tasks: true } },
     },
   });

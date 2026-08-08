@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { handleActionError } from "@/lib/actionError";
+import { awardPoints } from "@/core/rewards/engine";
 import { cosmeticPerksSelect, withCosmetics } from "@/core/rewards/cosmetics";
 
 const memberSelect = {
@@ -66,6 +67,8 @@ export async function sendClassMessage(
       data: { classId, authorId: user.id, content: parsed.data.content },
       include: { author: memberSelect },
     });
+
+    await awardPoints(user.id, "class_message_sent", classId);
 
     revalidatePath(`/courses/${classId}`);
 

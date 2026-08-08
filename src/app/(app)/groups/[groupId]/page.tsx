@@ -27,7 +27,7 @@ export default async function GroupDashboardPage({
   const group = await getGroupDashboard(groupId);
 
   if (!group || group.deletedAt) {
-    return <EmptyState icon="🔍" title="Project not found" />;
+    return <EmptyState icon="🔍" title="Not found" />;
   }
 
   const viewerMembership = group.members.find((m) => m.userId === user.id);
@@ -44,7 +44,7 @@ export default async function GroupDashboardPage({
           <CardHeader className="font-semibold">Members ({group.members.length})</CardHeader>
           <CardBody className="p-0">
             {group.members.map((m) => (
-              <MemberRow key={m.id} groupId={group.id} member={m} viewerIsLeader={false} />
+              <MemberRow key={m.id} groupId={group.id} member={m} viewerIsLeader={false} kind={group.kind} />
             ))}
           </CardBody>
         </Card>
@@ -56,7 +56,7 @@ export default async function GroupDashboardPage({
             </CardBody>
           </Card>
         ) : (
-          <JoinRequestForm groupId={group.id} />
+          <JoinRequestForm groupId={group.id} kind={group.kind} />
         )}
       </div>
     );
@@ -81,6 +81,7 @@ export default async function GroupDashboardPage({
           memberCount={group.members.length}
           viewerId={user.id}
           viewerIsLeader={canGovern}
+          kind={group.kind}
         />
       )}
 
@@ -156,7 +157,7 @@ export default async function GroupDashboardPage({
             <CardHeader className="font-semibold">Members ({group.members.length})</CardHeader>
             <CardBody className="p-0">
               {group.members.map((m) => (
-                <MemberRow key={m.id} groupId={group.id} member={m} viewerIsLeader={canGovern} />
+                <MemberRow key={m.id} groupId={group.id} member={m} viewerIsLeader={canGovern} kind={group.kind} />
               ))}
             </CardBody>
           </Card>

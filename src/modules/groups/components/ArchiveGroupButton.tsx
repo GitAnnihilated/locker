@@ -4,11 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/ui/components/Button";
 import { archiveGroup } from "../actions";
+import { GROUP_KIND_META } from "../meta";
+import type { GroupKind } from "@prisma/client";
 
-export function ArchiveGroupButton({ groupId }: { groupId: string }) {
+export function ArchiveGroupButton({ groupId, kind = "PROJECT" }: { groupId: string; kind?: GroupKind }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { noun } = GROUP_KIND_META[kind];
 
   return (
     <div>
@@ -17,7 +20,7 @@ export function ArchiveGroupButton({ groupId }: { groupId: string }) {
         size="sm"
         disabled={pending}
         onClick={() => {
-          if (!confirm("Archive this project? It will be hidden from the class list but not deleted.")) return;
+          if (!confirm(`Archive this ${noun}? It will be hidden from the class list but not deleted.`)) return;
           start(async () => {
             const result = await archiveGroup(groupId);
             if (result?.error) {
@@ -28,7 +31,7 @@ export function ArchiveGroupButton({ groupId }: { groupId: string }) {
           });
         }}
       >
-        {pending ? "Archiving…" : "Archive project"}
+        {pending ? "Archiving…" : `Archive ${noun}`}
       </Button>
       {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>

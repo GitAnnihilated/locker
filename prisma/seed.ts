@@ -19,6 +19,15 @@ const POINT_ACTIONS = [
   { key: "profile_completed", name: "Completed your profile", points: 30, dedupScope: DedupScope.PER_REF, cooldownSec: 0 },
   { key: "daily_login", name: "Showed up today", points: 5, dedupScope: DedupScope.PER_DAY, cooldownSec: 0 },
   { key: "streak_milestone", name: "Streak milestone bonus", points: 0, dedupScope: DedupScope.PER_REF, cooldownSec: 0 }, // points set per-milestone by the engine, not this row
+
+  // College modules — same anti-spam discipline as their School equivalents
+  // (class_message_sent mirrors group_participation's PER_REF_PER_DAY scope
+  // exactly, so chatting a lot in one course still only pays out once/day).
+  { key: "class_message_sent", name: "Participated in a course discussion", points: 8, dedupScope: DedupScope.PER_REF_PER_DAY, cooldownSec: 0 },
+  { key: "club_created", name: "Started a club", points: 25, dedupScope: DedupScope.PER_DAY, cooldownSec: 0 },
+  { key: "club_joined", name: "Joined a club", points: 10, dedupScope: DedupScope.PER_REF, cooldownSec: 0 },
+  { key: "event_created", name: "Posted a campus event", points: 15, dedupScope: DedupScope.PER_DAY, cooldownSec: 0 },
+  { key: "event_rsvp", name: "RSVP'd to an event", points: 5, dedupScope: DedupScope.PER_REF, cooldownSec: 0 },
 ];
 
 const BADGES = [

@@ -4,7 +4,9 @@ import { useState, useTransition } from "react";
 import { Card, CardBody } from "@/ui/components/Card";
 import { Button } from "@/ui/components/Button";
 import { startDeletionVote, castDeletionVote } from "../actions";
+import { GROUP_KIND_META } from "../meta";
 import type { GroupDashboard } from "../queries";
+import type { GroupKind } from "@prisma/client";
 
 export function DeletionVoteBanner({
   groupId,
@@ -12,16 +14,19 @@ export function DeletionVoteBanner({
   memberCount,
   viewerId,
   viewerIsLeader,
+  kind = "PROJECT",
 }: {
   groupId: string;
   openVote: GroupDashboard["deletionVotes"][number] | undefined;
   memberCount: number;
   viewerId: string;
   viewerIsLeader: boolean;
+  kind?: GroupKind;
 }) {
   const [pending, start] = useTransition();
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { noun } = GROUP_KIND_META[kind];
 
   if (resultMessage) {
     return (
@@ -39,7 +44,7 @@ export function DeletionVoteBanner({
       <Card className="border-danger/30">
         <CardBody className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium">Want to delete this project?</p>
+            <p className="text-sm font-medium">Want to delete this {noun}?</p>
             <p className="text-xs text-subtle">
               Every member votes — it only deletes with a majority.
             </p>

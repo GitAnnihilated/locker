@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Card, CardBody } from "@/ui/components/Card";
 import { Badge } from "@/ui/components/Badge";
 import { Button } from "@/ui/components/Button";
+import { CosmeticName } from "@/ui/components/CosmeticName";
 import { rsvpEvent, cancelRsvp } from "../actions";
 import type { UpcomingEvent } from "../queries";
 
@@ -27,7 +28,8 @@ export function EventCard({ event }: { event: UpcomingEvent }) {
         {event.description && <p className="mt-2 line-clamp-2 text-sm text-subtle">{event.description}</p>}
         <div className="mt-3 flex items-center justify-between">
           <p className="text-xs text-subtle">
-            {event.attendeeCount} going · hosted by {event.organizer.name}
+            {event.attendeeCount} going · hosted by{" "}
+            <CosmeticName color={event.organizer.nameColor}>{event.organizer.name}</CosmeticName>
           </p>
           {event.isAttending ? (
             <Button

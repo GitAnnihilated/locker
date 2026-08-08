@@ -5,11 +5,14 @@ import { Card, CardBody } from "@/ui/components/Card";
 import { Button } from "@/ui/components/Button";
 import { Textarea } from "@/ui/components/Input";
 import { requestToJoin } from "../actions";
+import { GROUP_KIND_META } from "../meta";
+import type { GroupKind } from "@prisma/client";
 
-export function JoinRequestForm({ groupId }: { groupId: string }) {
+export function JoinRequestForm({ groupId, kind = "PROJECT" }: { groupId: string; kind?: GroupKind }) {
   const [pending, start] = useTransition();
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { noun } = GROUP_KIND_META[kind];
 
   if (sent) {
     return (
@@ -24,7 +27,7 @@ export function JoinRequestForm({ groupId }: { groupId: string }) {
   return (
     <Card>
       <CardBody>
-        <p className="mb-2 text-sm font-medium">Want to join this project?</p>
+        <p className="mb-2 text-sm font-medium">Want to join this {noun}?</p>
         <form
           action={(fd) =>
             start(async () => {
