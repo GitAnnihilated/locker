@@ -85,12 +85,34 @@ function displayName(user: { name: string | null; nickname: string | null }) {
 // creation & membership
 // ---------------------------------------------------------------------------
 
-/** Creator becomes Leader immediately — there is exactly one Leader at a time. */
-export async function createGroup(formData: FormData): Promise<{ error: string } | undefined> {
+/**
+ * Creator becomes Leader immediately — there is exactly one Leader at a time.
+ *
+ * `classId` and `kind` are optional, both defaulting to School's original
+ * behavior (active membership, PROJECT) so /groups never has to change.
+ * College's Project Groups and Study Groups pages pass both explicitly —
+ * same reasoning as createHomework's classId param: a college student has
+ * many courses, so "my most recent one" would silently misfile a new group
+ * into the wrong course. Membership is verified either way.
+ */
+export async function createGroup(
+  formData: FormData,
+  classId?: string,
+  kind: "PROJECT" | "STUDY" = "PROJECT",
+): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
-    const membership = await getActiveMembership(user.id);
-    if (!membership) throw new Error("Join a class first");
+
+    let targetClassId: string;
+    if (classId) {
+      const membership = await db.membership.findUnique({ where: { userId_classId: { userId: user.id, classId } } });
+      if (!membership) throw new Error("You're not enrolled in this course.");
+      targetClassId = classId;
+    } else {
+      const membership = await getActiveMembership(user.id);
+      if (!membership) throw new Error("Join a class first");
+      targetClassId = membership.classId;
+    }
 
     const parsed = createGroupSchema.safeParse({
       name: formData.get("name"),
@@ -103,7 +125,8 @@ export async function createGroup(formData: FormData): Promise<{ error: string }
 
     const group = await db.group.create({
       data: {
-        classId: membership.classId,
+        classId: targetClassId,
+        kind,
         name: parsed.data.name,
         subject: parsed.data.subject,
         description: parsed.data.description,
@@ -117,6 +140,7 @@ export async function createGroup(formData: FormData): Promise<{ error: string }
     await awardPoints(user.id, "group_created", group.id);
 
     revalidatePath("/groups");
+    revalidatePath(kind === "STUDY" ? "/study-groups" : "/project-groups");
     redirect(`/groups/${group.id}`);
   } catch (e) {
     return handleActionError(e);

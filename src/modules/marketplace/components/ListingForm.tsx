@@ -2,10 +2,10 @@
 
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/ui/components/Button";
-import { Input, Textarea, Label } from "@/ui/components/Input";
+import { Input, Textarea, Label, Select } from "@/ui/components/Input";
 import { createListing } from "../actions";
 
-export function ListingForm() {
+export function ListingForm({ categories }: { categories?: string[] }) {
   const ref = useRef<HTMLFormElement>(null);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +30,21 @@ export function ListingForm() {
         <Label htmlFor="title">Item</Label>
         <Input id="title" name="title" placeholder="Physics textbook (9th ed.)" required />
       </div>
+      {categories && categories.length > 0 && (
+        <div>
+          <Label htmlFor="category">Category</Label>
+          <Select id="category" name="category" defaultValue="">
+            <option value="" disabled>
+              Select category
+            </option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
       <div>
         <Label htmlFor="price">Price ($)</Label>
         <Input id="price" name="price" type="number" min="0" step="0.01" placeholder="15.00" required />

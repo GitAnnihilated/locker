@@ -14,11 +14,29 @@ import { createHomeworkSchema } from "./schema";
  * authorize (must be a member of the class), write, and revalidate the board.
  */
 
-export async function createHomework(formData: FormData): Promise<{ error: string } | undefined> {
+/**
+ * `classId` is optional — the School /homework board never passes one (a
+ * student only ever has one active class, resolved via getActiveMembership,
+ * exactly as before). College's per-course Assignments tab on a course
+ * detail page DOES pass one explicitly, since a student there is enrolled
+ * in many courses and "my most recent one" would silently misfile the
+ * assignment into the wrong course otherwise. Either way, membership is
+ * verified before the write — never trust the caller's classId alone.
+ */
+export async function createHomework(formData: FormData, classId?: string): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
-    const membership = await getActiveMembership(user.id);
-    if (!membership) throw new Error("Join a class first");
+
+    let targetClassId: string;
+    if (classId) {
+      const membership = await db.membership.findUnique({ where: { userId_classId: { userId: user.id, classId } } });
+      if (!membership) throw new Error("You're not enrolled in this course.");
+      targetClassId = classId;
+    } else {
+      const membership = await getActiveMembership(user.id);
+      if (!membership) throw new Error("Join a class first");
+      targetClassId = membership.classId;
+    }
 
     const parsed = createHomeworkSchema.safeParse({
       title: formData.get("title"),
@@ -32,7 +50,7 @@ export async function createHomework(formData: FormData): Promise<{ error: strin
 
     await db.homework.create({
       data: {
-        classId: membership.classId,
+        classId: targetClassId,
         authorId: user.id, // first author gets contribution credit
         title: parsed.data.title,
         description: parsed.data.description,
@@ -42,6 +60,8 @@ export async function createHomework(formData: FormData): Promise<{ error: strin
     });
 
     revalidatePath("/homework");
+    revalidatePath("/assignments");
+    revalidatePath(`/courses/${targetClassId}`);
   } catch (e) {
     return handleActionError(e);
   }
@@ -61,6 +81,7 @@ export async function toggleDone(homeworkId: string, done: boolean): Promise<{ e
     if (done) await awardPoints(user.id, "homework_completed", homeworkId);
 
     revalidatePath("/homework");
+    revalidatePath("/assignments");
   } catch (e) {
     return handleActionError(e);
   }

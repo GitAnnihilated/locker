@@ -35,7 +35,7 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 border-r border-border bg-surface md:block">
-        <Sidebar />
+        <Sidebar educationType={user.educationType} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -60,7 +60,7 @@ export default async function AppLayout({
         </main>
       </div>
 
-      <MobileNav />
+      <MobileNav educationType={user.educationType} />
       <CelebrationQueue />
     </div>
   );

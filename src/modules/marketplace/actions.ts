@@ -6,11 +6,13 @@ import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
 import { getActiveMembership } from "@/core/membership/queries";
 import { handleActionError } from "@/lib/actionError";
+import { getMarketplaceCategories } from "@/core/education/config";
 
 const listingSchema = z.object({
   title: z.string().min(2).max(140),
   description: z.string().max(2000).optional(),
   price: z.coerce.number().min(0).max(100000), // dollars from the form
+  category: z.string().max(40).optional(),
 });
 
 export async function createListing(formData: FormData): Promise<{ error: string } | undefined> {
@@ -23,8 +25,19 @@ export async function createListing(formData: FormData): Promise<{ error: string
       title: formData.get("title"),
       description: formData.get("description") || undefined,
       price: formData.get("price"),
+      category: formData.get("category") || undefined,
     });
     if (!parsed.success) throw new Error("Invalid listing");
+
+    // Category is a free string in the DB, but the allowed set is
+    // config-driven per EducationType (see core/education/config.ts) — read
+    // fresh from the caller's own DB row, not trusted from the client, same
+    // as every other educationType-gated decision. An unrecognized value is
+    // silently dropped rather than rejected — categories are advisory, not
+    // a hard data constraint.
+    const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { educationType: true } });
+    const allowedCategories = getMarketplaceCategories(dbUser?.educationType ?? "SCHOOL");
+    const category = parsed.data.category && allowedCategories.includes(parsed.data.category) ? parsed.data.category : null;
 
     await db.marketplaceListing.create({
       data: {
@@ -32,11 +45,13 @@ export async function createListing(formData: FormData): Promise<{ error: string
         sellerId: user.id,
         title: parsed.data.title,
         description: parsed.data.description,
+        category,
         priceCents: Math.round(parsed.data.price * 100), // store integer cents
       },
     });
 
     revalidatePath("/marketplace");
+    revalidatePath("/campus-marketplace");
   } catch (e) {
     return handleActionError(e);
   }

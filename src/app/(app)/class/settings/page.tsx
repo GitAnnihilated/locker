@@ -16,6 +16,7 @@ import { RenameClassForm } from "@/modules/class-settings/components/RenameClass
 import { InviteCodePanel } from "@/modules/class-settings/components/InviteCodePanel";
 import { MemberRow } from "@/modules/class-settings/components/MemberRow";
 import { ArchiveClassButton } from "@/modules/class-settings/components/ArchiveClassButton";
+import { getTerminology } from "@/core/education/config";
 
 export default async function ClassSettingsPage({
   searchParams,
@@ -24,16 +25,18 @@ export default async function ClassSettingsPage({
 }) {
   const user = await requireUser();
   const { classId: requestedClassId } = await searchParams;
+  const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { educationType: true } });
+  const t = getTerminology(dbUser?.educationType ?? "SCHOOL");
 
   // A school authority (see below) can land here via a `?classId=` link from
   // School Settings to manage a class they aren't a member of; everyone
   // else lands here without a classId and gets their own active class, same
   // as before.
-  let klass: { id: string; name: string; founderId: string; inviteCode: string; schoolId: string } | null = null;
+  let klass: { id: string; name: string; founderId: string; inviteCode: string; schoolId: string; courseCode: string | null } | null = null;
   if (requestedClassId) {
     klass = await db.class.findUnique({
       where: { id: requestedClassId },
-      select: { id: true, name: true, founderId: true, inviteCode: true, schoolId: true },
+      select: { id: true, name: true, founderId: true, inviteCode: true, schoolId: true, courseCode: true },
     });
   } else {
     const membership = await getActiveMembership(user.id);
@@ -44,6 +47,7 @@ export default async function ClassSettingsPage({
         founderId: membership.class.founderId,
         inviteCode: membership.class.inviteCode,
         schoolId: membership.class.schoolId,
+        courseCode: membership.class.courseCode,
       };
     }
   }
@@ -92,15 +96,20 @@ export default async function ClassSettingsPage({
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Class settings</h1>
-        <p className="text-sm text-subtle">{klass.name}</p>
+        <h1 className="text-2xl font-bold">{t.classUnit} settings</h1>
+        <p className="text-sm text-subtle">{klass.name}{klass.courseCode ? ` · ${klass.courseCode}` : ""}</p>
       </div>
 
       {isFounder && (
         <Card>
-          <CardHeader className="font-semibold">Class name</CardHeader>
+          <CardHeader className="font-semibold">{t.classUnit} name</CardHeader>
           <CardBody>
-            <RenameClassForm classId={klass.id} currentName={klass.name} />
+            <RenameClassForm
+              classId={klass.id}
+              currentName={klass.name}
+              currentCourseCode={klass.courseCode}
+              educationType={dbUser?.educationType ?? "SCHOOL"}
+            />
           </CardBody>
         </Card>
       )}
@@ -109,7 +118,7 @@ export default async function ClassSettingsPage({
         <CardHeader className="font-semibold">Invite code</CardHeader>
         <CardBody>
           <p className="mb-3 text-sm text-subtle">
-            Share this code or the class link with classmates. Generating a new
+            Share this code or the {t.classUnit.toLowerCase()} link with classmates. Generating a new
             code disables the old one — useful if it leaked.
           </p>
           <InviteCodePanel classId={klass.id} initialCode={klass.inviteCode} />
@@ -137,8 +146,8 @@ export default async function ClassSettingsPage({
           <CardHeader className="font-semibold text-danger">Danger zone</CardHeader>
           <CardBody>
             <p className="mb-3 text-sm text-subtle">
-              Archiving hides the class from everyone&apos;s dashboard. Homework
-              and history are preserved, not deleted.
+              Archiving hides the {t.classUnit.toLowerCase()} from everyone&apos;s dashboard. {t.homeworkUnit}
+              {" "}and history are preserved, not deleted.
             </p>
             <ArchiveClassButton classId={klass.id} />
           </CardBody>

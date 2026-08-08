@@ -30,7 +30,7 @@ export async function joinClassByCode(formData: FormData): Promise<{ error: stri
     await awardPoints(user.id, "class_joined", klass.id);
     await awardPoints(user.id, "school_joined", klass.schoolId);
 
-    redirect("/homework");
+    redirect(await postJoinRedirect(user.id));
   } catch (e) {
     return handleActionError(e);
   }
@@ -41,33 +41,68 @@ const gradeSectionSchema = z.object({
   section: z.string().refine((v) => SECTION_OPTIONS.includes(v), "Choose a section"),
 });
 
+const courseSchema = z.object({
+  name: z.string().trim().min(2, "Enter a course name").max(80),
+  courseCode: z.string().trim().max(20).optional(),
+});
+
+/** Where onboarding lands a student right after they get their first class — the
+ * School homework board, or the College dashboard (no single "board" for a
+ * multi-course student to land on). Read fresh from the DB, never trusted
+ * from the client, same as every other educationType-gated decision. */
+async function postJoinRedirect(userId: string): Promise<string> {
+  const dbUser = await db.user.findUnique({ where: { id: userId }, select: { educationType: true } });
+  return dbUser?.educationType === "COLLEGE" ? "/dashboard" : "/homework";
+}
+
 /**
  * Creates a class inside an ALREADY-CHOSEN school (see src/core/school for
  * search/create-school). The creator instantly becomes the Class Founder —
  * no approval step, so a student's first class is usable in one action.
- * The class name is composed from Grade + Section dropdowns, not typed —
- * see core/membership/classNaming.ts.
+ *
+ * SCHOOL: the name is composed from Grade + Section dropdowns, not typed —
+ * see core/membership/classNaming.ts. COLLEGE: a Class doubles as a Course
+ * (see EducationType/Class.courseCode), so this takes a free-text course
+ * name + optional code instead — same table, same Membership/founder
+ * mechanics, just a different input shape. Which branch runs is decided
+ * from the caller's own DB row, never a client-supplied flag.
  */
 export async function createClass(schoolId: string, formData: FormData): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
-    const parsed = gradeSectionSchema.safeParse({
-      grade: formData.get("grade"),
-      section: formData.get("section"),
-    });
-    if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid class");
+    const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { educationType: true } });
+    const isCollege = dbUser?.educationType === "COLLEGE";
 
-    const name = composeClassName(parsed.data.grade, parsed.data.section);
+    let name: string;
+    let courseCode: string | null = null;
 
-    // Grade + Section is now a fixed, canonical format (see classNaming.ts), so
-    // an exact-name match within the same school IS the same class — no fuzzy
-    // matching needed like schools get. Archived/removed classes don't block a
-    // fresh one from being created under the same grade/section.
+    if (isCollege) {
+      const parsed = courseSchema.safeParse({
+        name: formData.get("name"),
+        courseCode: formData.get("courseCode") || undefined,
+      });
+      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid course");
+      name = parsed.data.name;
+      courseCode = parsed.data.courseCode?.toUpperCase() || null;
+    } else {
+      const parsed = gradeSectionSchema.safeParse({
+        grade: formData.get("grade"),
+        section: formData.get("section"),
+      });
+      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid class");
+      name = composeClassName(parsed.data.grade, parsed.data.section);
+    }
+
+    // Exact-name match within the same school is the same class/course —
+    // no fuzzy matching needed like schools get. Archived/removed classes
+    // don't block a fresh one from being created under the same name.
     const duplicate = await db.class.findFirst({
       where: { schoolId, status: "ACTIVE", deletedAt: null, name },
     });
     if (duplicate) {
-      throw new Error(`${name} already exists at this school. Ask its Class Founder for an invite code instead of creating a duplicate.`);
+      throw new Error(
+        `"${name}" already exists here. Ask its ${isCollege ? "Course" : "Class"} Founder for an invite code instead of creating a duplicate.`,
+      );
     }
 
     const klass = await db.class.create({
@@ -75,6 +110,7 @@ export async function createClass(schoolId: string, formData: FormData): Promise
         schoolId,
         founderId: user.id,
         name,
+        courseCode,
         inviteCode: generateCode(6),
       },
     });
@@ -92,7 +128,7 @@ export async function createClass(schoolId: string, formData: FormData): Promise
     await awardPoints(user.id, "class_joined", klass.id);
     await awardPoints(user.id, "school_joined", schoolId);
 
-    redirect("/homework");
+    redirect(isCollege ? "/dashboard" : "/homework");
   } catch (e) {
     return handleActionError(e);
   }
@@ -154,16 +190,30 @@ export async function renameClass(classId: string, formData: FormData): Promise<
     const user = await requireUser();
     await requireClassGovernor(user.id, classId);
 
-    const parsed = gradeSectionSchema.safeParse({
-      grade: formData.get("grade"),
-      section: formData.get("section"),
-    });
-    if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid class");
+    const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { educationType: true } });
 
-    await db.class.update({
-      where: { id: classId },
-      data: { name: composeClassName(parsed.data.grade, parsed.data.section) },
-    });
+    if (dbUser?.educationType === "COLLEGE") {
+      const parsed = courseSchema.safeParse({
+        name: formData.get("name"),
+        courseCode: formData.get("courseCode") || undefined,
+      });
+      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid course");
+      await db.class.update({
+        where: { id: classId },
+        data: { name: parsed.data.name, courseCode: parsed.data.courseCode?.toUpperCase() || null },
+      });
+    } else {
+      const parsed = gradeSectionSchema.safeParse({
+        grade: formData.get("grade"),
+        section: formData.get("section"),
+      });
+      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid class");
+      await db.class.update({
+        where: { id: classId },
+        data: { name: composeClassName(parsed.data.grade, parsed.data.section) },
+      });
+    }
+
     revalidatePath("/class/settings");
   } catch (e) {
     return handleActionError(e);

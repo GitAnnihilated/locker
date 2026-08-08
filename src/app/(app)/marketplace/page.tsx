@@ -6,10 +6,12 @@ import {
 import { getSchoolListings } from "@/modules/marketplace/queries";
 import { ListingForm } from "@/modules/marketplace/components/ListingForm";
 import { Card, CardBody } from "@/ui/components/Card";
+import { Badge } from "@/ui/components/Badge";
 import { EmptyState } from "@/ui/components/EmptyState";
 import { Avatar } from "@/ui/components/Avatar";
 import { CosmeticName } from "@/ui/components/CosmeticName";
 import { formatMoney } from "@/lib/format";
+import { getMarketplaceCategories } from "@/core/education/config";
 
 export default async function MarketplacePage() {
   const user = await requireUser();
@@ -53,6 +55,7 @@ export default async function MarketplacePage() {
                       {formatMoney(l.priceCents, l.currency)}
                     </span>
                   </div>
+                  {l.category && <Badge tone="neutral" className="mt-1">{l.category}</Badge>}
                   {l.description && (
                     <p className="mt-1 text-sm text-subtle">{l.description}</p>
                   )}
@@ -73,7 +76,7 @@ export default async function MarketplacePage() {
             Sell something
           </div>
           <div className="p-5">
-            <ListingForm />
+            <ListingForm categories={getMarketplaceCategories("SCHOOL")} />
           </div>
         </Card>
       </aside>

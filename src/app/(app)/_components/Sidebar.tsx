@@ -6,8 +6,9 @@ import { enabledModules } from "@/core/modules/registry";
 import { Logo } from "@/ui/brand/Logo";
 import { LinkPendingFade } from "@/ui/components/LinkPendingFade";
 import { cn } from "@/lib/cn";
+import type { EducationType } from "@prisma/client";
 
-export function Sidebar() {
+export function Sidebar({ educationType }: { educationType: EducationType }) {
   const pathname = usePathname();
 
   return (
@@ -16,7 +17,7 @@ export function Sidebar() {
         <Logo size={24} />
       </Link>
 
-      {enabledModules().map((m) => {
+      {enabledModules(educationType).map((m) => {
         const active = pathname.startsWith(m.href);
         return (
           <Link

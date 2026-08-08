@@ -9,8 +9,10 @@ import { getManagedSchool } from "@/core/school/queries";
 import { enabledModules } from "@/core/modules/registry";
 import { getPendingHomeworkCount } from "@/modules/homework/queries";
 import { getMyActiveGroupCount } from "@/modules/groups/queries";
+import { getPendingAssignmentsCount, getMyGroupCountByKind } from "@/modules/courses/queries";
 import { getAchievementCount } from "@/modules/achievements/queries";
 import { getProgressSummary } from "@/core/rewards/queries";
+import { getTerminology } from "@/core/education/config";
 import { Card, CardBody } from "@/ui/components/Card";
 import { Badge } from "@/ui/components/Badge";
 import { Button } from "@/ui/components/Button";
@@ -26,6 +28,15 @@ const MODULE_TINT: Record<string, "accent" | "lime" | "orange"> = {
   achievements: "accent",
   rewards: "orange",
   messages: "lime",
+  courses: "accent",
+  assignments: "accent",
+  "project-groups": "lime",
+  "study-groups": "lime",
+  "campus-marketplace": "orange",
+  notes: "accent",
+  clubs: "orange",
+  events: "lime",
+  classmates: "accent",
 };
 
 export default async function DashboardPage() {
@@ -34,9 +45,12 @@ export default async function DashboardPage() {
   // freshly-completed Profile Setup shows up immediately, not after re-login.
   const dbUser = await db.user.findUnique({
     where: { id: user.id },
-    select: { name: true, nickname: true },
+    select: { name: true, nickname: true, educationType: true },
   });
   const displayName = dbUser?.nickname || dbUser?.name;
+  const educationType = dbUser?.educationType ?? "SCHOOL";
+  const isCollege = educationType === "COLLEGE";
+  const t = getTerminology(educationType);
   const membership = await getActiveMembership(user.id);
 
   if (!membership) {
@@ -50,8 +64,8 @@ export default async function DashboardPage() {
         title={`Welcome, ${displayName?.split(" ")[0] ?? "student"}!`}
         description={
           managedSchool
-            ? `You manage ${managedSchool.name}. Join a class to unlock the rest of Locker.`
-            : "Join your class to unlock everything Locker can do."
+            ? `You manage ${managedSchool.name}. Join a ${t.classUnit.toLowerCase()} to unlock the rest of Locker.`
+            : `Join your ${t.classUnit.toLowerCase()} to unlock everything Locker can do.`
         }
         action={
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -69,11 +83,14 @@ export default async function DashboardPage() {
     );
   }
 
-  const [memberCount, managedSchool, pendingHomework, activeGroups, achievementCount, progress] = await Promise.all([
+  // College's "Due"/"Active" tiles are cross-course aggregates (a college
+  // student has many courses, not one class) — School's are single-class
+  // counts, unchanged. Both cost one query either way, just a different one.
+  const [memberCount, managedSchool, pendingWork, activeGroups, achievementCount, progress] = await Promise.all([
     getClassMemberCount(membership.classId),
     getManagedSchool(user.id),
-    getPendingHomeworkCount(membership.classId, user.id),
-    getMyActiveGroupCount(membership.classId, user.id),
+    isCollege ? getPendingAssignmentsCount(user.id) : getPendingHomeworkCount(membership.classId, user.id),
+    isCollege ? getMyGroupCountByKind(user.id, "PROJECT") : getMyActiveGroupCount(membership.classId, user.id),
     getAchievementCount(user.id),
     getProgressSummary(user.id),
   ]);
@@ -104,8 +121,20 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        <StatTile href="/homework" label="Due" value={pendingHomework} icon="📚" tint="accent" />
-        <StatTile href="/groups" label="Active projects" value={activeGroups} icon="👥" tint="lime" />
+        <StatTile
+          href={isCollege ? "/assignments" : "/homework"}
+          label="Due"
+          value={pendingWork}
+          icon="📚"
+          tint="accent"
+        />
+        <StatTile
+          href={isCollege ? "/project-groups" : "/groups"}
+          label="Active projects"
+          value={activeGroups}
+          icon="👥"
+          tint="lime"
+        />
         <StatTile href="/achievements" label="Achievements" value={achievementCount} icon="🏅" tint="orange" />
         <StatTile href="/rewards" label="Points" value={progress.points} icon="🏆" tint="accent" />
       </div>
@@ -114,7 +143,7 @@ export default async function DashboardPage() {
         {(membership.role === "FOUNDER" || membership.role === "MODERATOR") && (
           <Link href="/class/settings">
             <Button variant="secondary" size="sm">
-              Manage class
+              {t.manageClassLabel}
             </Button>
           </Link>
         )}
@@ -139,7 +168,7 @@ export default async function DashboardPage() {
           Your modules
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          {enabledModules().map((m) => {
+          {enabledModules(educationType).map((m) => {
             const locked =
               m.minClassMembers != null && memberCount < m.minClassMembers;
             const tint = MODULE_TINT[m.id] ?? "accent";

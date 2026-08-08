@@ -26,6 +26,19 @@ datasource db {
 // CORE IDENTITY & TENANCY
 // ============================================================
 
+// Which flavor of Locker a user sees — School (the original experience) or
+// College/University (courses, clubs, events, campus marketplace, etc). Not
+// a separate account type: same User row, same auth, same School/Class/
+// Membership backbone — a Class simply doubles as a "Course" for a COLLEGE
+// user (see core/education/ for the config that maps EducationType to
+// terminology/navigation/dashboard, so this enum is never string-matched
+// ad hoc around the app). Defaults to SCHOOL so every pre-existing account
+// keeps behaving exactly as before with zero migration risk.
+enum EducationType {
+  SCHOOL
+  COLLEGE
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
@@ -33,13 +46,20 @@ model User {
   // yet" (see core/auth/auth.ts's authorize()). Doubles as the boolean gate
   // and an audit timestamp of when the account became real.
   emailVerified DateTime?
-  passwordHash  String    // every account is email+password now — always required
-  name          String    // required at signup — there is no path to an unnamed account anymore
+  passwordHash  String // every account is email+password now — always required
+  name          String // required at signup — there is no path to an unnamed account anymore
   nickname      String?
   bio           String?
   image         String?
   handle        String?   @unique // public @name, claimed lazily
-  metadata      Json?     // escape hatch for future profile fields with no migration
+  metadata      Json? // escape hatch for future profile fields with no migration
+
+  // Additive, defaulted — existing rows silently become SCHOOL, no backfill
+  // needed. educationTypeSetAt is null until the user (or onboarding) makes
+  // an explicit choice; it's a soft "have they ever confirmed this" marker,
+  // not something anything else gates on.
+  educationType      EducationType @default(SCHOOL)
+  educationTypeSetAt DateTime?
 
   // Login brute-force protection (see core/auth/auth.ts authorize()): a
   // simple DB-backed counter/lockout. No Redis in this project, so this is
@@ -47,42 +67,40 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  @@index([createdAt])
-
-  memberships        Membership[]
-  homeworkCreated    Homework[]          @relation("HomeworkAuthor")
-  homeworkStatuses   HomeworkStatus[]
-  listings           MarketplaceListing[]
-  achievements       Achievement[]       // real-life accomplishments — the portfolio
-  invitesSent        Invite[]            @relation("InviteInviter")
-  invitedBy          Invite?             @relation("InviteAccepted")
-  notifications      Notification[]
+  memberships      Membership[]
+  homeworkCreated  Homework[]           @relation("HomeworkAuthor")
+  homeworkStatuses HomeworkStatus[]
+  listings         MarketplaceListing[]
+  achievements     Achievement[] // real-life accomplishments — the portfolio
+  invitesSent      Invite[]             @relation("InviteInviter")
+  invitedBy        Invite?              @relation("InviteAccepted")
+  notifications    Notification[]
 
   // Group Finder (project workspaces). Leadership is tracked via
   // GroupMember.role (LEADER), not a separate FK — a Group has exactly one
   // LEADER member at a time, enforced in app logic (transferLeadership).
-  groupMemberships       GroupMember[]
-  groupJoinRequests      GroupJoinRequest[]    @relation("GroupJoinRequester")
-  groupJoinRequestsDecided GroupJoinRequest[]  @relation("GroupJoinDecider")
-  tasksAssigned          GroupTask[]           @relation("TaskAssignee")
-  tasksCreated           GroupTask[]           @relation("TaskCreator")
-  resourcesUploaded      GroupResource[]
-  groupActivities        GroupActivity[]
-  deletionVotesStarted   GroupDeletionVote[]
-  deletionBallots        GroupDeletionBallot[]
-  groupMessages          GroupMessage[]
+  groupMemberships         GroupMember[]
+  groupJoinRequests        GroupJoinRequest[]    @relation("GroupJoinRequester")
+  groupJoinRequestsDecided GroupJoinRequest[]    @relation("GroupJoinDecider")
+  tasksAssigned            GroupTask[]           @relation("TaskAssignee")
+  tasksCreated             GroupTask[]           @relation("TaskCreator")
+  resourcesUploaded        GroupResource[]
+  groupActivities          GroupActivity[]
+  deletionVotesStarted     GroupDeletionVote[]
+  deletionBallots          GroupDeletionBallot[]
+  groupMessages            GroupMessage[]
 
   // Ownership & moderation (student-first: a student who creates a school or
   // class owns it outright — no approval step gates their ability to use Locker).
-  foundedSchools          School[]          @relation("SchoolFounder")
-  foundedClasses          Class[]           @relation("ClassFounder")
-  schoolModeratorRoles    SchoolModerator[] @relation("SchoolModeratorUser")
-  schoolModeratorGrants   SchoolModerator[] @relation("SchoolModeratorGrantedBy")
-  teacherOfClasses        Class[]           @relation("ClassTeacher") // reserved, unused until teacher verification ships
+  foundedSchools        School[]          @relation("SchoolFounder")
+  foundedClasses        Class[]           @relation("ClassFounder")
+  schoolModeratorRoles  SchoolModerator[] @relation("SchoolModeratorUser")
+  schoolModeratorGrants SchoolModerator[] @relation("SchoolModeratorGrantedBy")
+  teacherOfClasses      Class[]           @relation("ClassTeacher") // reserved, unused until teacher verification ships
 
   passwordResetCodes PasswordResetCode[]
 
@@ -99,23 +117,39 @@ model User {
   badges       UserBadge[]
   perks        UserPerk[]
   celebrations Celebration[]
+
+  // College modules — see "MODULE: COLLEGE" below. Additive only; SCHOOL
+  // users simply never populate these relations.
+  classResourcesUploaded ClassResource[]
+  classMessages          ClassMessage[]
+  clubsFounded           Club[]          @relation("ClubFounder")
+  clubMemberships        ClubMember[]
+  eventsOrganized        Event[]         @relation("EventOrganizer")
+  eventAttendances       EventAttendee[]
+
+  @@index([createdAt])
 }
 
 model School {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   name      String
-  slug      String   @unique // e.g. "lincoln-high"
-  domain    String?  // optional email domain for auto-join, e.g. "@lincoln.edu"
-  founderId String   // whichever student created the school owns it — no gatekeeping
+  slug      String    @unique // e.g. "lincoln-high"
+  domain    String? // optional email domain for auto-join, e.g. "@lincoln.edu"
+  founderId String // whichever student created the school owns it — no gatekeeping
   metadata  Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  founder    User              @relation("SchoolFounder", fields: [founderId], references: [id])
+  founder    User                 @relation("SchoolFounder", fields: [founderId], references: [id])
   classes    Class[]
   listings   MarketplaceListing[]
   moderators SchoolModerator[]
+
+  // College modules — clubs/events belong to the institution (School row),
+  // not any one Class/Course, since they span the whole campus.
+  clubs  Club[]
+  events Event[]
 
   @@index([slug])
   @@index([founderId])
@@ -125,11 +159,11 @@ model School {
 // Membership because a school moderator's authority spans every class in the
 // school, not just one they're a member of.
 model SchoolModerator {
-  id            String   @id @default(uuid())
-  schoolId      String
-  userId        String
-  grantedById   String
-  createdAt     DateTime @default(now())
+  id          String   @id @default(uuid())
+  schoolId    String
+  userId      String
+  grantedById String
+  createdAt   DateTime @default(now())
 
   school    School @relation(fields: [schoolId], references: [id])
   user      User   @relation("SchoolModeratorUser", fields: [userId], references: [id])
@@ -142,16 +176,20 @@ model SchoolModerator {
 enum ClassStatus {
   ACTIVE
   ARCHIVED // set by the Class Founder — hides it without deleting history
-  REMOVED  // set by the School Founder as a moderation action
+  REMOVED // set by the School Founder as a moderation action
 }
 
 model Class {
   id         String      @id @default(uuid())
   schoolId   String
-  founderId  String      // whichever student created the class owns it
-  teacherId  String?     // reserved: set once a verified teacher claims the class (not implemented yet)
-  name       String      // "Grade 10-B" or "AP Biology - Period 3"
+  founderId  String // whichever student created the class owns it
+  teacherId  String? // reserved: set once a verified teacher claims the class (not implemented yet)
+  name       String // "Grade 10-B" or "AP Biology - Period 3"; for a COLLEGE user this IS their Course name
   subject    String?
+  // COLLEGE only ("PHYS101") — a Class doubles as a Course for COLLEGE
+  // users (see EducationType), so this is just an extra optional field
+  // rather than a whole parallel Course model. Always null for SCHOOL.
+  courseCode String?
   status     ClassStatus @default(ACTIVE)
   inviteCode String      @unique // the growth engine: joining requires this — also doubles as the invite link/QR payload
   metadata   Json?
@@ -165,6 +203,12 @@ model Class {
   memberships Membership[]
   homework    Homework[]
   groups      Group[]
+
+  // College modules (see "MODULE: COLLEGE") — a course's resources,
+  // discussion thread, and any events scoped to it specifically.
+  classResources ClassResource[]
+  classMessages  ClassMessage[]
+  events         Event[]
 
   @@index([schoolId])
   @@index([inviteCode])
@@ -186,7 +230,7 @@ model Membership {
   id        String   @id @default(uuid())
   userId    String
   classId   String
-  schoolId  String   // denormalized for fast school-scoped queries + sharding
+  schoolId  String // denormalized for fast school-scoped queries + sharding
   role      Role     @default(STUDENT)
   verified  Boolean  @default(false) // confirmed by >=2 existing members
   createdAt DateTime @default(now())
@@ -205,18 +249,18 @@ model Membership {
 // ============================================================
 
 model Homework {
-  id          String   @id @default(uuid())
-  classId     String
-  authorId    String   // first person to add it gets contribution credit
-  title       String
-  description String?
-  subject     String?
-  dueAt       DateTime?
-  confirmations Int    @default(1) // how many members vouch it's real -> coverage meter
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  id            String    @id @default(uuid())
+  classId       String
+  authorId      String // first person to add it gets contribution credit
+  title         String
+  description   String?
+  subject       String?
+  dueAt         DateTime?
+  confirmations Int       @default(1) // how many members vouch it's real -> coverage meter
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
   class    Class            @relation(fields: [classId], references: [id])
   author   User             @relation("HomeworkAuthor", fields: [authorId], references: [id])
@@ -256,6 +300,11 @@ model MarketplaceListing {
   sellerId    String
   title       String
   description String?
+  // Freeform, not an enum — allowed values are config-driven per
+  // EducationType (see core/education/config.ts) so SCHOOL vs COLLEGE
+  // category lists can differ without a migration. Nullable so every
+  // existing listing stays valid untouched.
+  category    String?
   priceCents  Int           @default(0) // integer money, never floats
   currency    String        @default("USD")
   images      String[]      @default([])
@@ -300,7 +349,7 @@ enum ConditionStat {
   CURRENT_STREAK
   LONGEST_STREAK
   TOTAL_POINTS_EARNED
-  ACCOUNT_RANK    // 1-based signup order; lower = earlier (for "Early Adopter")
+  ACCOUNT_RANK // 1-based signup order; lower = earlier (for "Early Adopter")
   ONBOARDING_DONE // 0 or 1
 }
 
@@ -314,7 +363,7 @@ model Badge {
   key            String        @unique // "homework_hero", "consistency_30"
   name           String
   description    String
-  icon           String        // emoji
+  icon           String // emoji
   rarity         Rarity        @default(COMMON)
   conditionStat  ConditionStat
   conditionOp    ConditionOp   @default(GTE)
@@ -360,9 +409,9 @@ model Perk {
   icon        String
   rarity      Rarity   @default(COMMON)
   slot        PerkSlot
-  price       Int      // in points; 0 = never purchasable, streak-granted only
+  price       Int // in points; 0 = never purchasable, streak-granted only
   purchasable Boolean  @default(true)
-  value       String?  // hex color / css class / effect key — read by the slot's own renderer, never branched on by key
+  value       String? // hex color / css class / effect key — read by the slot's own renderer, never branched on by key
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
 
@@ -394,9 +443,9 @@ model LevelDef {
 }
 
 enum DedupScope {
-  NONE            // always awardable, subject only to cooldownSec
-  PER_REF         // once per (user, action, refId), forever — e.g. one award per homeworkId
-  PER_DAY         // once per (user, action) per calendar day — e.g. daily login
+  NONE // always awardable, subject only to cooldownSec
+  PER_REF // once per (user, action, refId), forever — e.g. one award per homeworkId
+  PER_DAY // once per (user, action) per calendar day — e.g. daily login
   PER_REF_PER_DAY // once per (user, action, refId) per calendar day — e.g. one group's chat/day
 }
 
@@ -562,6 +611,16 @@ enum ProjectStatus {
   ARCHIVED // set by the leader directly, or by a successful deletion vote
 }
 
+// PROJECT = exists to complete a project (the original, and still School's
+// only kind). STUDY = exists to learn/revise together (College's Study
+// Groups). Deliberately just a field on the same Group model — a study
+// group needs the exact same members/chat/tasks/resources machinery a
+// project group already has, not a parallel system.
+enum GroupKind {
+  PROJECT
+  STUDY
+}
+
 // LEADER = created the project (exactly one at a time — enforced in app
 // logic via transferLeadership, which atomically demotes the old leader).
 // CO_LEADER = promoted by the Leader; can manage day-to-day project work but
@@ -603,7 +662,7 @@ enum DeletionVoteStatus {
   OPEN
   PASSED // >50% of current members voted DELETE -> group archived
   FAILED // resolved, not enough DELETE votes
-  TIED   // equal DELETE/KEEP with all members voted -> not deleted, must restart
+  TIED // equal DELETE/KEEP with all members voted -> not deleted, must restart
 }
 
 enum VoteChoice {
@@ -614,10 +673,11 @@ enum VoteChoice {
 model Group {
   id          String        @id @default(uuid())
   classId     String
+  kind        GroupKind     @default(PROJECT)
   name        String
   subject     String?
   description String?
-  teacherName String?       // plain text for now — no Teacher entity/verification yet
+  teacherName String? // plain text for now — no Teacher entity/verification yet
   dueAt       DateTime?
   status      ProjectStatus @default(UPCOMING)
   metadata    Json?
@@ -626,7 +686,7 @@ model Group {
   archivedAt  DateTime?
   deletedAt   DateTime?
 
-  class         Class                @relation(fields: [classId], references: [id])
+  class         Class               @relation(fields: [classId], references: [id])
   members       GroupMember[]
   joinRequests  GroupJoinRequest[]
   tasks         GroupTask[]
@@ -636,6 +696,7 @@ model Group {
   messages      GroupMessage[]
 
   @@index([classId, status])
+  @@index([classId, kind])
 }
 
 // In-project chat. Deliberately NOT logged to GroupActivity — that feed is
@@ -739,8 +800,8 @@ model GroupActivity {
   id        String   @id @default(uuid())
   groupId   String
   actorId   String
-  type      String   // "created" | "join_requested" | "member_joined" | "member_removed" | "resource_added" | "task_created" | "task_assigned" | "task_completed" | "role_changed" | "leader_transferred" | "deadline_changed" | "details_updated" | "deletion_vote_started" | "deletion_vote_resolved" | "archived"
-  message   String   // "Aryan requested to join"
+  type      String // "created" | "join_requested" | "member_joined" | "member_removed" | "resource_added" | "task_created" | "task_assigned" | "task_completed" | "role_changed" | "leader_transferred" | "deadline_changed" | "details_updated" | "deletion_vote_started" | "deletion_vote_resolved" | "archived"
+  message   String // "Aryan requested to join"
   metadata  Json?
   createdAt DateTime @default(now())
 
@@ -760,9 +821,9 @@ model GroupDeletionVote {
   createdAt     DateTime           @default(now())
   resolvedAt    DateTime?
 
-  group         Group                 @relation(fields: [groupId], references: [id])
-  initiatedBy   User                  @relation(fields: [initiatedById], references: [id])
-  ballots       GroupDeletionBallot[]
+  group       Group                 @relation(fields: [groupId], references: [id])
+  initiatedBy User                  @relation(fields: [initiatedById], references: [id])
+  ballots     GroupDeletionBallot[]
 
   @@index([groupId])
 }
@@ -809,13 +870,13 @@ model Notification {
 // ============================================================
 
 model Invite {
-  id         String    @id @default(uuid())
-  code       String    @unique
-  inviterId  String
-  classId    String?   // invite can be to a specific class
-  acceptedById String? @unique
-  acceptedAt DateTime?
-  createdAt  DateTime  @default(now())
+  id           String    @id @default(uuid())
+  code         String    @unique
+  inviterId    String
+  classId      String? // invite can be to a specific class
+  acceptedById String?   @unique
+  acceptedAt   DateTime?
+  createdAt    DateTime  @default(now())
 
   inviter    User  @relation("InviteInviter", fields: [inviterId], references: [id])
   acceptedBy User? @relation("InviteAccepted", fields: [acceptedById], references: [id])
@@ -839,10 +900,10 @@ model PendingRegistration {
   email         String   @unique
   name          String
   passwordHash  String
-  code          String   // 6-digit, plaintext — brute force is stopped by
-                          // `attempts` + expiry, not by hashing a 1-in-a-
-                          // million numeric code (hashing wouldn't change the
-                          // search space, only add latency).
+  code          String // 6-digit, plaintext — brute force is stopped by
+  // `attempts` + expiry, not by hashing a 1-in-a-
+  // million numeric code (hashing wouldn't change the
+  // search space, only add latency).
   codeExpiresAt DateTime
   attempts      Int      @default(0)
   lastSentAt    DateTime @default(now()) // resend cooldown (60s)
@@ -904,4 +965,131 @@ model DirectMessage {
   sender       User         @relation(fields: [senderId], references: [id])
 
   @@index([conversationId, createdAt])
+}
+
+// ============================================================
+// MODULE: COLLEGE  (Courses/Notes/Discussions/Clubs/Events)
+// ------------------------------------------------------------------
+// Courses, Assignments, Project Groups, Study Groups, and Campus
+// Marketplace deliberately reuse Class/Homework/Group/MarketplaceListing
+// directly (see EducationType, Class.courseCode, Group.kind,
+// MarketplaceListing.category above) — a COLLEGE user's "course" IS a
+// Class row. Only genuinely new concepts get new tables here: per-course
+// resources/discussion (mirroring GroupResource/GroupMessage's shape but
+// keyed by classId instead of groupId, so they can reuse the exact same
+// upload UI / ChatThread component), and Clubs/Events, which have no
+// existing analog at all.
+// ============================================================
+
+model ClassResource {
+  id          String       @id @default(uuid())
+  classId     String
+  title       String
+  description String?
+  type        ResourceType // reuses Group Finder's existing type enum
+  url         String
+  uploaderId  String
+  createdAt   DateTime     @default(now())
+  deletedAt   DateTime?
+
+  class    Class @relation(fields: [classId], references: [id])
+  uploader User  @relation(fields: [uploaderId], references: [id])
+
+  @@index([classId])
+}
+
+// Course-specific discussion — deliberately separate from Group Chat and
+// DMs: "does anyone understand question 4" belongs to the whole course,
+// not one project group or one person. Same shape as GroupMessage on
+// purpose, so it can be normalized into the same ChatMessage type and
+// rendered by the exact same shared ChatThread component.
+model ClassMessage {
+  id        String    @id @default(uuid())
+  classId   String
+  authorId  String
+  content   String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  class  Class @relation(fields: [classId], references: [id])
+  author User  @relation(fields: [authorId], references: [id])
+
+  @@index([classId, createdAt])
+}
+
+enum ClubRole {
+  MEMBER
+  ORGANIZER
+}
+
+model Club {
+  id          String    @id @default(uuid())
+  schoolId    String
+  name        String
+  description String?
+  category    String?
+  founderId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  school  School       @relation(fields: [schoolId], references: [id])
+  founder User         @relation("ClubFounder", fields: [founderId], references: [id])
+  members ClubMember[]
+  events  Event[]
+
+  @@index([schoolId])
+}
+
+model ClubMember {
+  id       String   @id @default(uuid())
+  clubId   String
+  userId   String
+  role     ClubRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  club Club @relation(fields: [clubId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([clubId, userId])
+  @@index([userId])
+}
+
+// Campus events — optionally scoped to a Club (a club's own event) and/or
+// a Class/Course (an academic event), but neither is required: a generic
+// campus-wide event (e.g. a hackathon) sets both null.
+model Event {
+  id          String    @id @default(uuid())
+  schoolId    String
+  clubId      String?
+  classId     String?
+  title       String
+  description String?
+  startAt     DateTime
+  location    String?
+  organizerId String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  school    School          @relation(fields: [schoolId], references: [id])
+  club      Club?           @relation(fields: [clubId], references: [id])
+  class     Class?          @relation(fields: [classId], references: [id])
+  organizer User            @relation("EventOrganizer", fields: [organizerId], references: [id])
+  attendees EventAttendee[]
+
+  @@index([schoolId, startAt])
+}
+
+model EventAttendee {
+  id        String   @id @default(uuid())
+  eventId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+  @@index([userId])
 }
