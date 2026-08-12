@@ -1,4 +1,4 @@
-import type { EducationType } from "@prisma/client";
+import type { EducationType, UserRole } from "@prisma/client";
 
 /**
  * MODULE REGISTRY — the plug-in seam.
@@ -47,6 +47,8 @@ export interface ModuleDefinition {
   enabled: boolean;
   /** Which EducationType(s) see this in navigation. Omitted = shown to both. */
   educationTypes?: EducationType[];
+  /** Which UserRole(s) see this in navigation. Omitted = shown to every role. */
+  roles?: UserRole[];
 }
 
 export const MODULES: ModuleDefinition[] = [
@@ -66,6 +68,9 @@ export const MODULES: ModuleDefinition[] = [
     href: "/rewards",
     description: "Points, badges, streaks, and the perk store.",
     enabled: true,
+    // Gamification is a student-motivation layer, not something a
+    // teacher/principal's own account should be earning badges through.
+    roles: ["STUDENT"],
   },
   {
     id: "messages",
@@ -207,5 +212,10 @@ export const MODULES: ModuleDefinition[] = [
   },
 ];
 
-export const enabledModules = (educationType: EducationType = "SCHOOL") =>
-  MODULES.filter((m) => m.enabled && (!m.educationTypes || m.educationTypes.includes(educationType)));
+export const enabledModules = (educationType: EducationType = "SCHOOL", role: UserRole = "STUDENT") =>
+  MODULES.filter(
+    (m) =>
+      m.enabled &&
+      (!m.educationTypes || m.educationTypes.includes(educationType)) &&
+      (!m.roles || m.roles.includes(role)),
+  );

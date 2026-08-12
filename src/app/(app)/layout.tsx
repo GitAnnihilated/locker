@@ -20,13 +20,15 @@ export default async function AppLayout({
   // requireDbUser returns the fresh DB user (not the JWT snapshot), so
   // name/nickname edits show up without re-login.
   const user = await requireDbUser();
-  // No-ops after a single cheap read once already checked in today — cheap
-  // enough to call on every authenticated page load, which is what
-  // "meaningful daily activity" actually requires (no separate check-in
-  // button to remember). Runs alongside the notification fetches since
-  // neither depends on the other.
+  const isStudent = user.role === "STUDENT";
+
+  // Gamification (streaks/points/badges) is a student-motivation layer —
+  // recordDailyActivity is skipped entirely for teachers/principals rather
+  // than run-and-hide, so it's neither wasted writes nor a dead feature
+  // silently tracking staff accounts. Notifications/cosmetics stay for
+  // everyone; those aren't reward-system concepts.
   const [, notifications, unreadCount, cosmetics] = await Promise.all([
-    recordDailyActivity(user.id),
+    isStudent ? recordDailyActivity(user.id) : Promise.resolve(),
     getRecentNotifications(user.id),
     getUnreadCount(user.id),
     getEquippedCosmetics(user.id),
@@ -35,7 +37,7 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 border-r border-border bg-surface md:block">
-        <Sidebar educationType={user.educationType} />
+        <Sidebar educationType={user.educationType} role={user.role} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -60,8 +62,8 @@ export default async function AppLayout({
         </main>
       </div>
 
-      <MobileNav educationType={user.educationType} />
-      <CelebrationQueue />
+      <MobileNav educationType={user.educationType} role={user.role} />
+      {isStudent && <CelebrationQueue />}
     </div>
   );
 }

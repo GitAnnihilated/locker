@@ -5,16 +5,16 @@ import { usePathname } from "next/navigation";
 import { enabledModules } from "@/core/modules/registry";
 import { LinkPendingFade } from "@/ui/components/LinkPendingFade";
 import { cn } from "@/lib/cn";
-import type { EducationType } from "@prisma/client";
+import type { EducationType, UserRole } from "@prisma/client";
 
 /**
  * The sidebar is hidden below `md` — without this, phones would have no way
  * to reach Homework/Marketplace/Groups/etc. A bottom tab bar is the
  * thumb-reachable standard for a daily-use mobile app.
  */
-export function MobileNav({ educationType }: { educationType: EducationType }) {
+export function MobileNav({ educationType, role }: { educationType: EducationType; role: UserRole }) {
   const pathname = usePathname();
-  const modules = enabledModules(educationType);
+  const modules = enabledModules(educationType, role);
 
   return (
     <nav

@@ -55,6 +55,7 @@ export default async function DashboardPage() {
   const isCollege = educationType === "COLLEGE";
   const t = getTerminology(educationType);
   const isTeacher = !isCollege && (dbUser?.role === "TEACHER" || dbUser?.role === "PRINCIPAL");
+  const isStudent = (dbUser?.role ?? "STUDENT") === "STUDENT";
   const [membership, teacherClasses] = await Promise.all([
     getActiveMembership(user.id),
     isTeacher ? getTeacherClasses(user.id) : Promise.resolve([]),
@@ -117,10 +118,12 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {progress.currentStreak > 0 && (
+          {/* Gamification (streaks/levels/points) is a student-motivation
+              layer, not something a teacher/principal's account earns. */}
+          {isStudent && progress.currentStreak > 0 && (
             <Badge tone="warning">🔥 {progress.currentStreak}-day streak</Badge>
           )}
-          <Badge tone="accent">⭐ Lv. {progress.level}</Badge>
+          {isStudent && <Badge tone="accent">⭐ Lv. {progress.level}</Badge>}
           <Badge tone={membership.role === "FOUNDER" ? "accent" : membership.role === "MODERATOR" ? "success" : "neutral"}>
             {membership.role === "FOUNDER" && membership.class.teacherId ? "TEACHER" : membership.role}
           </Badge>
@@ -143,7 +146,7 @@ export default async function DashboardPage() {
           tint="lime"
         />
         <StatTile href="/achievements" label="Achievements" value={achievementCount} icon="🏅" tint="orange" />
-        <StatTile href="/rewards" label="Points" value={progress.points} icon="🏆" tint="accent" />
+        {isStudent && <StatTile href="/rewards" label="Points" value={progress.points} icon="🏆" tint="accent" />}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -213,7 +216,7 @@ export default async function DashboardPage() {
           Your modules
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          {enabledModules(educationType).map((m) => {
+          {enabledModules(educationType, dbUser?.role ?? "STUDENT").map((m) => {
             const locked =
               m.minClassMembers != null && memberCount < m.minClassMembers;
             const tint = MODULE_TINT[m.id] ?? "accent";
