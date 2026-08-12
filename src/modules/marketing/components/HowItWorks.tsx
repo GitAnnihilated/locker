@@ -4,22 +4,22 @@ const STEPS = [
   {
     n: "01",
     title: "Create your account",
-    description: "Sign up with your email — takes about thirty seconds.",
+    description: "Sign up with your email, then tell us if you're a student, teacher, or principal.",
   },
   {
     n: "02",
-    title: "Find or start your school",
-    description: "Search for your school. If it's not there yet, you create it — no waiting on anyone.",
+    title: "Find or set up your school",
+    description: "Search for your school. Principals create it if it's not there yet — everyone else just joins.",
   },
   {
     n: "03",
-    title: "Join or create your class",
-    description: "Start a class and get an invite code instantly, or join one a classmate already made.",
+    title: "Create or join your class",
+    description: "Teachers create a class and get an invite code instantly. Students join with that code.",
   },
   {
     n: "04",
-    title: "Invite your classmates",
-    description: "The more of your class that joins, the more useful every board and every list becomes.",
+    title: "Invite everyone in",
+    description: "The more of your class that joins, the more useful every board, list, and PTM slot becomes.",
   },
 ];
 

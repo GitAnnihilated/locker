@@ -9,16 +9,22 @@ const FEATURES = [
     description: "A shared board that's only complete once your whole class fills it in — miss a class, it's already there.",
   },
   {
+    icon: "👥",
+    tint: "lime" as const,
+    title: "Group Finder",
+    description: "Real project and study workspaces — tasks, resources, and chat, not just a headcount.",
+  },
+  {
+    icon: "🗓️",
+    tint: "orange" as const,
+    title: "Parent-Teacher Meetings",
+    description: "Teachers open timeslots; students and parents book what's free. No back-and-forth to schedule one.",
+  },
+  {
     icon: "🛍️",
     tint: "orange" as const,
     title: "Marketplace",
     description: "Buy and sell books and gear within your school. No fees, no strangers off-campus.",
-  },
-  {
-    icon: "👥",
-    tint: "lime" as const,
-    title: "Groups",
-    description: "Real project workspaces — tasks, resources, and progress tracking, not just a headcount.",
   },
   {
     icon: "🏅",
@@ -27,16 +33,16 @@ const FEATURES = [
     description: "A real portfolio of what you've actually earned — competitions, certifications, awards.",
   },
   {
-    icon: "🎖️",
+    icon: "🏆",
     tint: "orange" as const,
-    title: "Badges",
-    description: "Streaks and milestones for showing up — the fun layer, kept separate from your real accomplishments.",
+    title: "Rewards",
+    description: "Points, streaks, and a perk store — the fun layer, kept separate from your real accomplishments.",
   },
   {
     icon: "💬",
     tint: "lime" as const,
-    title: "Group Chat",
-    description: "Talk directly inside your project group, without leaving the workspace.",
+    title: "Messages",
+    description: "Direct messages with anyone in your school — classmates, project teammates, or your teacher.",
   },
 ];
 
@@ -52,7 +58,7 @@ export function Features() {
       <div className="max-w-xl">
         <Eyebrow>What&apos;s inside</Eyebrow>
         <h2 className="mt-3 text-3xl font-bold text-balance sm:text-4xl">
-          Six tools. One place to open.
+          Seven tools. One place to open.
         </h2>
         <p className="mt-4 text-lg text-subtle">
           Not a suite bolted together — Locker was built as one thing from the start.

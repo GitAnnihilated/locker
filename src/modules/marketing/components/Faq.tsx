@@ -3,27 +3,31 @@ import { Eyebrow } from "./Eyebrow";
 const FAQS = [
   {
     q: "Is Locker free?",
-    a: "Yes. Creating a school, a class, and using every current module costs nothing.",
+    a: "Yes. Setting up a school, a class, and using every current module costs nothing.",
   },
   {
-    q: "Does my school need to sign up first?",
-    a: "No. Any student can create their school and class the moment they sign up — there's no approval step blocking you from starting.",
+    q: "Who can create a school or a class?",
+    a: "A school is created and owned by its Principal. From there, teachers create and own their own classes. Students join with an invite code — they never need to create anything to get started.",
+  },
+  {
+    q: "Does Locker replace our school's existing ERP?",
+    a: "No. If your school already uses a system like Shri Educare for attendance, official notices, or administrative records, that stays the system of record. Locker is the collaboration layer on top — classes, groups, resources, and PTMs — not a replacement.",
   },
   {
     q: "What if someone I don't know joins my class?",
-    a: "Joining always requires an invite code from someone already in the class — there's no public directory of classes to browse into.",
+    a: "Joining always requires an invite code from a teacher or classmate already in the class — there's no public directory of classes to browse into.",
   },
   {
     q: "Can a class remove someone who's causing problems?",
-    a: "Yes. Class Founders and moderators can remove members, and a School Founder can remove an entire spam class if needed.",
+    a: "Yes. A class's owner and moderators can remove members, and whoever owns the school (its Principal, or its Founder for a college account) can remove an entire spam class if needed.",
   },
   {
     q: "What happens to my data?",
     a: "Your homework, marketplace listings, and achievements stay tied to your account and your class — they're not shared outside your school.",
   },
   {
-    q: "Is there a teacher account?",
-    a: "Not yet — it's on the roadmap. For now, classes are created and run by students.",
+    q: "Is Locker only for schools, or colleges too?",
+    a: "Both. College and university accounts get their own terminology and modules — courses, project and study groups, clubs, events, and a campus marketplace — built on the same underlying platform.",
   },
 ];
 

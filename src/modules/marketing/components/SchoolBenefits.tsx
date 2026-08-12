@@ -1,14 +1,13 @@
 import { Eyebrow } from "./Eyebrow";
-import { Badge } from "@/ui/components/Badge";
 
 const POINTS = [
   {
-    title: "Nothing to install, nothing to approve",
-    description: "Students bring their own class. There's no procurement process standing between them and using it.",
+    title: "Real roles, not a free-for-all",
+    description: "A Principal sets up the school once; teachers create and own their classes. Students can join, never create one in a teacher's name.",
   },
   {
-    title: "Real moderation, not a free-for-all",
-    description: "Every school and class has a Founder and moderators who can remove spam, manage membership, and archive when needed.",
+    title: "A complement, not a replacement",
+    description: "Your existing ERP stays the system of record for attendance, notices, and official records. Locker is where the day-to-day coordination happens.",
   },
   {
     title: "Contained by design",
@@ -42,11 +41,6 @@ export function SchoolBenefits() {
               <p className="mt-1.5 text-sm text-subtle">{p.description}</p>
             </div>
           ))}
-        </div>
-
-        <div className="mt-6 flex items-center gap-2 text-sm text-subtle">
-          <Badge tone="neutral">Coming soon</Badge>
-          <span>Verified teacher accounts, so staff can claim and co-manage a class.</span>
         </div>
       </div>
     </section>

@@ -14,7 +14,7 @@ export function CtaSection() {
             Your class is one invite code away.
           </h2>
           <p className="mx-auto mt-4 max-w-md text-accent-fg/80">
-            No setup fee, no school approval, no waiting for someone else to go first.
+            No setup fee, no contract, no seat licenses — free for every student, teacher, and principal.
           </p>
           <div className="mt-8">
             <Link href="/signup">

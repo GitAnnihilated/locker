@@ -2,21 +2,22 @@ import { Eyebrow } from "./Eyebrow";
 import { Avatar } from "@/ui/components/Avatar";
 
 /**
- * Locker hasn't launched yet — there are no real students to quote. Inventing
- * fake names and quotes here would be dishonest marketing copy, so this is a
- * deliberately labeled placeholder instead of fabricated testimonials.
+ * We don't have permission to publish real student/teacher quotes yet.
+ * Inventing fake names and quotes here would be dishonest marketing copy,
+ * so this is a deliberately labeled placeholder instead of fabricated
+ * testimonials — swap it out once real ones can be collected and quoted.
  */
 export function Testimonials() {
   return (
     <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
       <div className="max-w-xl">
-        <Eyebrow>From the first classes</Eyebrow>
+        <Eyebrow>From real classes</Eyebrow>
         <h2 className="mt-3 text-3xl font-bold text-balance sm:text-4xl">
           We&apos;re just getting started.
         </h2>
         <p className="mt-4 text-lg text-subtle">
-          Locker is pre-launch — this space is reserved for real quotes from
-          real students, once there are some to share.
+          This space is reserved for real quotes from real students and
+          teachers, once there are some we can share.
         </p>
       </div>
 

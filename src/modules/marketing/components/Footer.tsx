@@ -28,8 +28,8 @@ export function Footer() {
           <div className="max-w-xs">
             <Logo size={24} />
             <p className="mt-3 text-sm text-subtle">
-              The daily tool built for students — homework, marketplace,
-              projects, and real achievements in one place.
+              The collaboration layer for students, teachers, and principals —
+              classes, groups, PTMs, and real achievements in one place.
             </p>
           </div>
 
@@ -57,7 +57,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-border pt-6 text-xs text-faint sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Locker. Built for students.</p>
+          <p>© {new Date().getFullYear()} Locker. Built for students, teachers, and principals.</p>
         </div>
       </div>
     </footer>

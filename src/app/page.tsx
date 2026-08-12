@@ -2,6 +2,7 @@ import { MarketingHeader } from "@/modules/marketing/components/MarketingHeader"
 import { Hero } from "@/modules/marketing/components/Hero";
 import { Features } from "@/modules/marketing/components/Features";
 import { StudentBenefits } from "@/modules/marketing/components/StudentBenefits";
+import { TeacherBenefits } from "@/modules/marketing/components/TeacherBenefits";
 import { SchoolBenefits } from "@/modules/marketing/components/SchoolBenefits";
 import { HowItWorks } from "@/modules/marketing/components/HowItWorks";
 import { Testimonials } from "@/modules/marketing/components/Testimonials";
@@ -21,6 +22,7 @@ export default function LandingPage() {
       <Hero />
       <Features />
       <StudentBenefits />
+      <TeacherBenefits />
       <SchoolBenefits />
       <HowItWorks />
       <Testimonials />
