@@ -122,7 +122,7 @@ export default async function DashboardPage() {
           )}
           <Badge tone="accent">⭐ Lv. {progress.level}</Badge>
           <Badge tone={membership.role === "FOUNDER" ? "accent" : membership.role === "MODERATOR" ? "success" : "neutral"}>
-            {membership.role}
+            {membership.role === "FOUNDER" && membership.class.teacherId ? "TEACHER" : membership.role}
           </Badge>
         </div>
       </div>
@@ -161,13 +161,20 @@ export default async function DashboardPage() {
             </Button>
           </Link>
         )}
-        <LeaveClassButton classId={membership.classId} isFounder={membership.role === "FOUNDER"} />
+        {/* A SCHOOL class's teacher can't "leave" it into a student's hands
+            (see core/membership/actions.ts's leaveClass) — archiving from
+            Class Settings is the real off-ramp, so the button just doesn't
+            apply to them. */}
+        {!(membership.role === "FOUNDER" && membership.class.teacherId) && (
+          <LeaveClassButton classId={membership.classId} isFounder={membership.role === "FOUNDER"} />
+        )}
       </div>
 
       <InviteCard
         className={membership.class.name}
         inviteCode={membership.class.inviteCode}
         memberCount={memberCount}
+        viewerIsTeacher={membership.role === "FOUNDER" && membership.class.teacherId != null}
       />
 
       {isTeacher && teacherClasses.length > 0 && (

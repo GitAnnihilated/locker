@@ -204,7 +204,13 @@ export async function restoreClassInSchool(schoolId: string, classId: string): P
   }
 }
 
-/** School Founder hands ownership to another member of the school, by email. */
+/**
+ * School Founder hands ownership to another member of the school, by
+ * email. For a real SCHOOL (founded by a PRINCIPAL — see requirePrincipal
+ * in createSchool), the new owner must also hold the PRINCIPAL role,
+ * otherwise this would silently hand a whole institution to a student or
+ * teacher account. COLLEGE keeps the original any-member handoff.
+ */
 export async function transferSchoolOwnership(schoolId: string, formData: FormData): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
@@ -213,6 +219,11 @@ export async function transferSchoolOwnership(schoolId: string, formData: FormDa
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const target = await db.user.findUnique({ where: { email } });
     if (!target) throw new Error("No Locker user with that email");
+
+    const currentOwner = await db.user.findUnique({ where: { id: user.id }, select: { role: true } });
+    if (currentOwner?.role === "PRINCIPAL" && target.role !== "PRINCIPAL") {
+      throw new Error("The new owner must also have the Principal role.");
+    }
 
     const isMember = await db.membership.findFirst({
       where: { userId: target.id, schoolId },

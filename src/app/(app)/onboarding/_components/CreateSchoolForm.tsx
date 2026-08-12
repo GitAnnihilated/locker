@@ -9,11 +9,13 @@ import { createSchool, findSimilarSchools } from "@/core/school/actions";
 import type { SchoolSearchResult } from "@/core/school/queries";
 
 /**
- * No approval step: submitting this makes the student the School Founder
- * immediately. But first, a fuzzy "did you mean one of these?" check —
- * catches typos and near-duplicate names before a second copy of the same
- * school gets created. Skips straight to creating when nothing's similar,
- * so the common case stays one click.
+ * Only reachable by whoever createSchool actually allows — a PRINCIPAL for
+ * SCHOOL, any student for COLLEGE (see requirePrincipal in
+ * core/school/actions.ts) — and submitting makes them its owner
+ * immediately, no separate approval step. First, a fuzzy "did you mean one
+ * of these?" check — catches typos and near-duplicate names before a
+ * second copy of the same school gets created. Skips straight to creating
+ * when nothing's similar, so the common case stays one click.
  */
 export function CreateSchoolForm({
   orgUnit = "School",

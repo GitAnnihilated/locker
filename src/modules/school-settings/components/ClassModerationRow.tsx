@@ -24,7 +24,7 @@ export function ClassModerationRow({
         <div>
           <p className="text-sm font-medium">{klass.name}</p>
           <p className="text-xs text-subtle">
-            {klass._count.memberships} members · founded by {klass.founder.name ?? klass.founder.email}
+            {klass._count.memberships} members · created by {klass.founder.name ?? klass.founder.email}
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -88,7 +88,7 @@ export default async function OnboardingPage({
                 <CardBody>
                   <p className="mb-3 text-sm text-subtle">
                     You&apos;ll be the {t.classCreatedRole} — you get an invite code and
-                    link to share with classmates right away.
+                    link to share with {isCollege ? "classmates" : "your students"} right away.
                   </p>
                   {isCollege ? <CreateCourseForm schoolId={school.id} /> : <CreateClassForm schoolId={school.id} />}
                 </CardBody>
@@ -119,7 +119,7 @@ export default async function OnboardingPage({
       <div className="text-center">
         <h1 className="text-2xl font-bold">Find your {t.orgUnit.toLowerCase()}</h1>
         <p className="mt-1 text-sm text-subtle">
-          Got an invite code from a classmate instead? Skip straight to joining below.
+          Got an invite code instead? Skip straight to joining below.
         </p>
       </div>
 
@@ -130,7 +130,9 @@ export default async function OnboardingPage({
           {canCreateSchool ? (
             <div className="border-t border-border pt-3">
               <p className="mb-2 text-xs font-medium text-subtle">
-                Can&apos;t find your {t.orgUnit.toLowerCase()}? You&apos;ll be its founder.
+                {isCollege
+                  ? `Can't find your college? You'll be its founder.`
+                  : `Can't find your school? You'll be its Principal.`}
               </p>
               <CreateSchoolForm orgUnit={t.orgUnit} classUnit={t.classUnit} classUnitPlural={t.classUnitPlural} />
             </div>

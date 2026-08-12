@@ -26,7 +26,7 @@ const TERMINOLOGY: Record<EducationType, EducationTerminology> = {
     groupsLabel: "Group Finder",
     manageClassLabel: "Manage class",
     createClassCta: "Create a class",
-    classCreatedRole: "Class Founder",
+    classCreatedRole: "Teacher",
   },
   COLLEGE: {
     orgUnit: "College",

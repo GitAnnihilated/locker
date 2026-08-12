@@ -13,11 +13,15 @@ export function InviteCard({
   className,
   inviteCode,
   memberCount,
+  viewerIsTeacher = false,
 }: {
   className: string;
   inviteCode: string;
   memberCount: number;
+  /** True when the viewer is this SCHOOL class's teacher — "classmates" reads oddly from their side. */
+  viewerIsTeacher?: boolean;
 }) {
+  const audience = viewerIsTeacher ? "students" : "classmates";
   const [copied, setCopied] = useState(false);
   const link =
     typeof window !== "undefined"
@@ -45,10 +49,10 @@ export function InviteCard({
   return (
     <Card className="border-accent/25 bg-accent-soft">
       <CardBody>
-        <p className="font-semibold">Invite your classmates</p>
+        <p className="font-semibold">Invite your {audience}</p>
         <p className="mt-1 text-sm text-subtle">
           {memberCount < 3
-            ? `${3 - memberCount} more classmate${3 - memberCount === 1 ? "" : "s"} unlocks the Marketplace.`
+            ? `${3 - memberCount} more ${3 - memberCount === 1 ? audience.slice(0, -1) : audience} unlocks the Marketplace.`
             : "A fuller class means a more reliable homework board. Keep inviting."}
         </p>
 

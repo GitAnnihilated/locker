@@ -20,8 +20,13 @@
  *    Moderator would — see canManageClassAsSchool.
  *  - Class Founder: whoever created the Class row (Class.founderId) — for a
  *    SCHOOL-type class this is always its TEACHER (Class.teacherId mirrors
- *    it), mirrored as Membership.role = FOUNDER for that class.
- *  - Class Moderator: promoted by the Class Founder (Membership.role = MODERATOR).
+ *    it), mirrored as Membership.role = FOUNDER for that class. Unlike
+ *    COLLEGE, a SCHOOL class's Founder/teacher is fixed: no promoting a
+ *    Class Moderator, and no transferring it to a student (see
+ *    core/membership/actions.ts's promoteModerator/transferClassOwnership) —
+ *    the teacher manages the class directly, full stop.
+ *  - Class Moderator: COLLEGE only. Promoted by the Class Founder
+ *    (Membership.role = MODERATOR).
  *  - COLLEGE classes ("courses") keep the pre-existing student-first, no
  *    gatekeeping model unchanged — role gating only applies to SCHOOL.
  */

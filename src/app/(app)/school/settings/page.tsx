@@ -13,6 +13,7 @@ import {
   transferSchoolOwnership,
 } from "@/core/school/actions";
 import { canAccessSchoolSettings, isSchoolFounder } from "@/core/permissions/rules";
+import { db } from "@/core/db/client";
 import { Card, CardBody, CardHeader } from "@/ui/components/Card";
 import { EmptyState } from "@/ui/components/EmptyState";
 import { Button } from "@/ui/components/Button";
@@ -41,7 +42,15 @@ export default async function SchoolSettingsPage() {
     return <EmptyState icon="🚪" title="Join a class first" />;
   }
 
-  const moderators = await getSchoolModerators(school.id);
+  const [moderators, founderUser] = await Promise.all([
+    getSchoolModerators(school.id),
+    db.user.findUnique({ where: { id: school.founderId }, select: { role: true } }),
+  ]);
+  // A school founded by a PRINCIPAL is a real SCHOOL institution — that's
+  // only ever possible post role-gating (see requirePrincipal in
+  // core/school/actions.ts), so it's a reliable signal, same idea as
+  // Class.teacherId marking a teacher-owned class.
+  const isPrincipalGoverned = founderUser?.role === "PRINCIPAL";
   const schoolCtx = {
     founderId: school.founderId,
     moderatorUserIds: moderators.map((m) => m.userId),
@@ -53,8 +62,12 @@ export default async function SchoolSettingsPage() {
     return (
       <EmptyState
         icon="🔒"
-        title="School founders & moderators only"
-        description="Class Founders manage their own class from Class Settings, but school-wide settings are separate — by design."
+        title={isPrincipalGoverned ? "This school's Principal only" : "School founders & moderators only"}
+        description={
+          isPrincipalGoverned
+            ? "Teachers manage their own class from Class Settings, but school-wide settings belong to the Principal — by design."
+            : "Class Founders manage their own class from Class Settings, but school-wide settings are separate — by design."
+        }
         action={
           <Link href="/dashboard">
             <Button variant="secondary">Back to dashboard</Button>
@@ -88,8 +101,9 @@ export default async function SchoolSettingsPage() {
         </CardHeader>
         <CardBody className="p-0">
           <p className="px-4 pt-3 text-xs text-subtle">
-            Classes launch instantly when a student creates them — moderation
-            here is for removing spam after the fact, never a gate before students can use Locker.
+            {isPrincipalGoverned
+              ? "Only teachers and the Principal can create a class here — moderation below is for removing spam after the fact, not a gate before it happens."
+              : "Classes launch instantly when a student creates them — moderation here is for removing spam after the fact, never a gate before students can use Locker."}
           </p>
           <div className="mt-2">
             {classes.map((c) => (
@@ -103,7 +117,7 @@ export default async function SchoolSettingsPage() {
         <>
           <Card>
             <CardHeader className="font-semibold">
-              School moderators ({moderators.length})
+              {isPrincipalGoverned ? "Staff moderators" : "School moderators"} ({moderators.length})
             </CardHeader>
             <CardBody className="p-0">
               {moderators.map((m) => (
@@ -113,7 +127,7 @@ export default async function SchoolSettingsPage() {
                 <EmailActionForm
                   schoolId={school.id}
                   action={assignSchoolModerator}
-                  placeholder="classmate@school.edu"
+                  placeholder={isPrincipalGoverned ? "teacher@school.edu" : "classmate@school.edu"}
                   buttonLabel="Add moderator"
                 />
               </div>
@@ -122,20 +136,25 @@ export default async function SchoolSettingsPage() {
 
           <Card className="border-danger/30">
             <CardHeader className="font-semibold text-danger">
-              Transfer ownership
+              Transfer {isPrincipalGoverned ? "Principal role" : "ownership"}
             </CardHeader>
             <CardBody>
               <p className="mb-3 text-sm text-subtle">
-                Hands School Founder control to another member of this school.
-                This cannot be undone by you — only the new founder can transfer it back.
+                {isPrincipalGoverned
+                  ? "Hands Principal control to another member of this school. This cannot be undone by you — only the new Principal can transfer it back."
+                  : "Hands School Founder control to another member of this school. This cannot be undone by you — only the new founder can transfer it back."}
               </p>
               <EmailActionForm
                 schoolId={school.id}
                 action={transferSchoolOwnership}
-                placeholder="new-founder@school.edu"
+                placeholder={isPrincipalGoverned ? "new-principal@school.edu" : "new-founder@school.edu"}
                 buttonLabel="Transfer"
                 buttonVariant="danger"
-                confirmMessage="Transfer school ownership? You will no longer be the School Founder."
+                confirmMessage={
+                  isPrincipalGoverned
+                    ? "Transfer the Principal role? You will no longer manage this school."
+                    : "Transfer school ownership? You will no longer be the School Founder."
+                }
               />
             </CardBody>
           </Card>

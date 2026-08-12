@@ -32,11 +32,11 @@ export default async function ClassSettingsPage({
   // School Settings to manage a class they aren't a member of; everyone
   // else lands here without a classId and gets their own active class, same
   // as before.
-  let klass: { id: string; name: string; founderId: string; inviteCode: string; schoolId: string; courseCode: string | null; subject: string | null } | null = null;
+  let klass: { id: string; name: string; founderId: string; teacherId: string | null; inviteCode: string; schoolId: string; courseCode: string | null; subject: string | null } | null = null;
   if (requestedClassId) {
     klass = await db.class.findUnique({
       where: { id: requestedClassId },
-      select: { id: true, name: true, founderId: true, inviteCode: true, schoolId: true, courseCode: true, subject: true },
+      select: { id: true, name: true, founderId: true, teacherId: true, inviteCode: true, schoolId: true, courseCode: true, subject: true },
     });
   } else {
     const membership = await getActiveMembership(user.id);
@@ -45,6 +45,7 @@ export default async function ClassSettingsPage({
         id: membership.classId,
         name: membership.class.name,
         founderId: membership.class.founderId,
+        teacherId: membership.class.teacherId,
         inviteCode: membership.class.inviteCode,
         schoolId: membership.class.schoolId,
         courseCode: membership.class.courseCode,
@@ -52,6 +53,11 @@ export default async function ClassSettingsPage({
       };
     }
   }
+
+  // The reliable "is this a teacher-owned SCHOOL class, or a student-founded
+  // COLLEGE course" signal — Class.teacherId is only ever set for the
+  // former (see core/membership/actions.ts's createClass).
+  const isTeacherOwned = klass?.teacherId != null;
 
   if (!klass) {
     return <EmptyState icon="🚪" title="Join a class first" />;
@@ -83,8 +89,12 @@ export default async function ClassSettingsPage({
     return (
       <EmptyState
         icon="🔒"
-        title="Founders & moderators only"
-        description="Ask your class founder for access, or explore the other modules."
+        title={isTeacherOwned ? "This class's teacher only" : "Founders & moderators only"}
+        description={
+          isTeacherOwned
+            ? "Ask your teacher for access, or explore the other modules."
+            : "Ask your class founder for access, or explore the other modules."
+        }
         action={
           <Link href="/dashboard">
             <Button variant="secondary">Back to dashboard</Button>
@@ -125,8 +135,8 @@ export default async function ClassSettingsPage({
         <CardHeader className="font-semibold">Invite code</CardHeader>
         <CardBody>
           <p className="mb-3 text-sm text-subtle">
-            Share this code or the {t.classUnit.toLowerCase()} link with classmates. Generating a new
-            code disables the old one — useful if it leaked.
+            Share this code or the {t.classUnit.toLowerCase()} link with {isTeacherOwned ? "your students" : "classmates"}.
+            Generating a new code disables the old one — useful if it leaked.
           </p>
           <InviteCodePanel classId={klass.id} initialCode={klass.inviteCode} />
         </CardBody>
@@ -143,6 +153,7 @@ export default async function ClassSettingsPage({
               classId={klass.id}
               member={m}
               viewerIsFounder={isFounder}
+              isTeacherOwned={isTeacherOwned}
             />
           ))}
         </CardBody>

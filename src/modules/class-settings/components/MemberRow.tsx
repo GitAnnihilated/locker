@@ -14,10 +14,18 @@ import {
 } from "@/core/membership/actions";
 import type { Role } from "@prisma/client";
 
+const ROLE_LABEL: Record<Role, string> = {
+  FOUNDER: "Founder",
+  MODERATOR: "Moderator",
+  STUDENT: "Student",
+  TEACHER: "Teacher",
+};
+
 export function MemberRow({
   classId,
   member,
   viewerIsFounder,
+  isTeacherOwned,
 }: {
   classId: string;
   member: {
@@ -26,9 +34,13 @@ export function MemberRow({
     user: { id: string; name: string | null; email: string; image: string | null } & EquippedCosmetics;
   };
   viewerIsFounder: boolean;
+  /** A SCHOOL class (Class.teacherId set) has a fixed teacher, not a
+   * promotable/transferable Founder — see core/membership/actions.ts. */
+  isTeacherOwned: boolean;
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const roleLabel = isTeacherOwned && member.role === "FOUNDER" ? "Teacher" : ROLE_LABEL[member.role];
 
   return (
     <div className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-0">
@@ -45,53 +57,61 @@ export function MemberRow({
 
         <div className="flex items-center gap-2">
           <Badge tone={member.role === "FOUNDER" ? "accent" : member.role === "MODERATOR" ? "success" : "neutral"}>
-            {member.role}
+            {roleLabel}
           </Badge>
 
           {viewerIsFounder && member.role !== "FOUNDER" && (
             <>
-              {member.role === "MODERATOR" ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={pending}
-                  onClick={() =>
-                    start(async () => {
-                      const result = await demoteModerator(classId, member.userId);
-                      setError(result?.error ?? null);
-                    })
-                  }
-                >
-                  Demote
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={pending}
-                  onClick={() =>
-                    start(async () => {
-                      const result = await promoteModerator(classId, member.userId);
-                      setError(result?.error ?? null);
-                    })
-                  }
-                >
-                  Promote
-                </Button>
+              {/* SCHOOL classes have no moderator/transfer step — the teacher
+                  manages the class directly (see core/membership/actions.ts).
+                  A student can still be removed for the same reason a
+                  COLLEGE course founder can remove one. */}
+              {!isTeacherOwned && (
+                <>
+                  {member.role === "MODERATOR" ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={pending}
+                      onClick={() =>
+                        start(async () => {
+                          const result = await demoteModerator(classId, member.userId);
+                          setError(result?.error ?? null);
+                        })
+                      }
+                    >
+                      Demote
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={pending}
+                      onClick={() =>
+                        start(async () => {
+                          const result = await promoteModerator(classId, member.userId);
+                          setError(result?.error ?? null);
+                        })
+                      }
+                    >
+                      Promote
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={pending}
+                    onClick={() =>
+                      start(async () => {
+                        const result = await transferClassOwnership(classId, member.userId);
+                        setError(result?.error ?? null);
+                      })
+                    }
+                  >
+                    Make founder
+                  </Button>
+                </>
               )}
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={pending}
-                onClick={() =>
-                  start(async () => {
-                    const result = await transferClassOwnership(classId, member.userId);
-                    setError(result?.error ?? null);
-                  })
-                }
-              >
-                Make founder
-              </Button>
               <Button
                 size="sm"
                 variant="danger"

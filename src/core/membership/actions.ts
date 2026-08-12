@@ -119,7 +119,9 @@ export async function createClass(schoolId: string, formData: FormData): Promise
     });
     if (duplicate) {
       throw new Error(
-        `"${name}" already exists here. Ask its ${isCollege ? "Course" : "Class"} Founder for an invite code instead of creating a duplicate.`,
+        isCollege
+          ? `"${name}" already exists here. Ask its Course Founder for an invite code instead of creating a duplicate.`
+          : `"${name}" already exists here. Ask its teacher for an invite code instead of creating a duplicate.`,
       );
     }
 
@@ -156,24 +158,37 @@ export async function createClass(schoolId: string, formData: FormData): Promise
 
 /**
  * A student can always walk away — leaving never requires anyone's
- * approval. If the leaver is the Class Founder, leadership auto-succeeds to
- * whoever has been in the class longest (earliest join after the founder),
- * so the class is never left ownerless. Only when the founder is the class's
- * last member does leaving require archiving instead (nothing to hand off to).
+ * approval. COLLEGE keeps the original student-first model: if the leaver
+ * is the Course Founder, leadership auto-succeeds to whoever's been there
+ * longest, so the course is never left ownerless.
+ *
+ * SCHOOL is different on purpose: a class's teacher is not a peer who
+ * happens to be first among equals, they're its actual teacher-of-record
+ * (Class.teacherId). Handing that off to a student on leave would silently
+ * turn a teacher-owned class into a student-owned one — exactly the thing
+ * role gating exists to prevent. A teacher can still archive their own
+ * class; they just can't "leave" it into a student's hands.
  */
 export async function leaveClass(classId: string): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
 
-    const membership = await db.membership.findUnique({
-      where: { userId_classId: { userId: user.id, classId } },
-    });
+    const [membership, klass] = await Promise.all([
+      db.membership.findUnique({ where: { userId_classId: { userId: user.id, classId } } }),
+      db.class.findUniqueOrThrow({ where: { id: classId }, select: { teacherId: true } }),
+    ]);
     if (!membership) return;
 
     if (membership.role !== "FOUNDER") {
       await db.membership.delete({ where: { id: membership.id } });
       revalidatePath("/dashboard");
       return;
+    }
+
+    if (klass.teacherId) {
+      throw new Error(
+        "As this class's teacher, you can archive it from Class Settings, but you can't hand it off to a student by leaving.",
+      );
     }
 
     const successor = await db.membership.findFirst({
@@ -201,10 +216,13 @@ export async function leaveClass(classId: string): Promise<{ error: string } | u
 }
 
 // ---------------------------------------------------------------------------
-// Class Founder / Moderator governance
+// Class governance — SCHOOL classes are teacher-owned (Class.teacherId is
+// fixed at creation); COLLEGE courses keep the original student-founder/
+// moderator model. Every action below that only makes sense in one of the
+// two says so explicitly.
 // ---------------------------------------------------------------------------
 
-/** Class Founder, or the School Founder of this class's school. */
+/** Class Founder/Teacher, or the school authority above them. */
 export async function renameClass(classId: string, formData: FormData): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
@@ -263,7 +281,10 @@ export async function removeMember(classId: string, targetUserId: string): Promi
     const ctx = await requireClassManagerOrSchoolAuthority(user.id, classId);
 
     if (targetUserId === ctx.founderId) {
-      throw new Error("The class founder can't be removed. Transfer ownership first.");
+      const klass = await db.class.findUniqueOrThrow({ where: { id: classId }, select: { teacherId: true } });
+      throw new Error(
+        klass.teacherId ? "This class's teacher can't be removed." : "The class founder can't be removed. Transfer ownership first.",
+      );
     }
 
     await db.membership.deleteMany({ where: { classId, userId: targetUserId } });
@@ -273,11 +294,20 @@ export async function removeMember(classId: string, targetUserId: string): Promi
   }
 }
 
-/** Class Founder, or School Founder — grants moderation power to a member. */
+/**
+ * COLLEGE only — a peer-promoted moderator makes sense in the student-first
+ * course model. SCHOOL classes are teacher-owned (Class.teacherId); there's
+ * no "promote a student to help govern" step, since governance authority
+ * comes from the User.role a Principal/Teacher already holds, not a class-
+ * scoped grant. See requireTeacherOrPrincipal for how that's enforced.
+ */
 export async function promoteModerator(classId: string, targetUserId: string): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
     await requireClassGovernor(user.id, classId);
+
+    const klass = await db.class.findUniqueOrThrow({ where: { id: classId }, select: { teacherId: true } });
+    if (klass.teacherId) throw new Error("School classes don't have moderators — the teacher manages the class directly.");
 
     await db.membership.updateMany({
       where: { classId, userId: targetUserId },
@@ -289,11 +319,14 @@ export async function promoteModerator(classId: string, targetUserId: string): P
   }
 }
 
-/** Class Founder, or School Founder — revokes moderation power. */
+/** COLLEGE only — see promoteModerator. */
 export async function demoteModerator(classId: string, targetUserId: string): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
     await requireClassGovernor(user.id, classId);
+
+    const klass = await db.class.findUniqueOrThrow({ where: { id: classId }, select: { teacherId: true } });
+    if (klass.teacherId) throw new Error("School classes don't have moderators — the teacher manages the class directly.");
 
     await db.membership.updateMany({
       where: { classId, userId: targetUserId, role: "MODERATOR" },
@@ -320,15 +353,20 @@ export async function archiveClass(classId: string): Promise<{ error: string } |
 }
 
 /**
- * Class Founder, or School Founder — hands the class to another member.
- * Demotes the OUTGOING class founder (ctx.founderId), not necessarily the
- * caller — a School Founder invoking this from School Settings usually
- * isn't a member of the class at all.
+ * COLLEGE only — hands the course to another member. Demotes the OUTGOING
+ * founder (ctx.founderId), not necessarily the caller — a school authority
+ * invoking this from School Settings usually isn't a member of the course
+ * at all. SCHOOL classes can't be transferred this way — see requireTeacherOrPrincipal
+ * (only a Teacher/Principal ever creates one) and Class.teacherId, which is
+ * the fixed owner, not something a member vote or hand-off can move.
  */
 export async function transferClassOwnership(classId: string, targetUserId: string): Promise<{ error: string } | undefined> {
   try {
     const user = await requireUser();
     const ctx = await requireClassGovernor(user.id, classId);
+
+    const klass = await db.class.findUniqueOrThrow({ where: { id: classId }, select: { teacherId: true } });
+    if (klass.teacherId) throw new Error("A school class's teacher is fixed and can't be transferred to a student.");
 
     const targetMembership = await db.membership.findUnique({
       where: { userId_classId: { userId: targetUserId, classId } },
