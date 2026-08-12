@@ -1,17 +1,20 @@
+import { useId } from "react";
 import { cn } from "@/lib/cn";
 
 /**
  * LOCKER LOGO
  * ------------------------------------------------------------------
- * An original mark: a friendly, rounded locker-door body with a
- * confident shackle (reliability) and an orange keyhole (the warm
- * focal point). Deliberately NOT a cybersecurity padlock — the soft
- * superellipse body reads as a school locker, and the rounded shackle
- * keeps it approachable. Two-tone by design so it stays crisp at 16px
- * and timeless; lime + orange carry the energy elsewhere in the UI.
+ * A rounded-square "workspace" with an L-shaped doorway cut through it —
+ * the letterform L, a doorway breaching open to the container's edge
+ * (never a sealed vault), and a keyhole silhouette, all in one shape.
+ * A solid accent circle sits at the head of that channel as a connection
+ * node — someone present in the shared space — rather than a literal lock
+ * mechanism. Deliberately not a padlock/cybersecurity mark. Flat, two-tone,
+ * legible from a 16px favicon up to a full navbar lockup.
  *
- * tone="brand"  -> pine body + orange keyhole (default)
- * tone="mono"   -> fully currentColor, including the keyhole — for small
+ * tone="brand"  -> brand ink body + accent node (default; --brand-ink
+ *                  inverts light/dark automatically, see globals.css)
+ * tone="mono"   -> fully currentColor, including the node — for small
  *                  on-color chips and watermarks where a second color
  *                  would need to match whatever it's sitting on
  */
@@ -24,8 +27,9 @@ export function LogoMark({
   tone?: "brand" | "mono";
   className?: string;
 }) {
-  const body = tone === "mono" ? "currentColor" : "hsl(var(--accent))";
-  const keyhole = tone === "mono" ? "currentColor" : "hsl(var(--brand-orange))";
+  const maskId = useId();
+  const body = tone === "mono" ? "currentColor" : "hsl(var(--brand-ink))";
+  const node = tone === "mono" ? "currentColor" : "hsl(var(--brand-node))";
 
   return (
     <svg
@@ -37,19 +41,14 @@ export function LogoMark({
       aria-hidden="true"
       className={className}
     >
-      {/* shackle */}
-      <path
-        d="M13.5 20 V15 a6.5 6.5 0 0 1 13 0 V20"
-        stroke={body}
-        strokeWidth="4.5"
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* locker-door body */}
-      <rect x="9" y="18.5" width="22" height="16" rx="6" fill={body} />
-      {/* keyhole */}
-      <circle cx="20" cy="25" r="2.5" fill={keyhole} />
-      <path d="M18.5 26.2 L20 30.6 L21.5 26.2 Z" fill={keyhole} />
+      <mask id={maskId}>
+        <rect x="4" y="4" width="32" height="32" rx="8" fill="#fff" />
+        <rect x="15.2" y="10.4" width="5.6" height="14.4" rx="1.6" fill="#000" />
+        <rect x="15.2" y="19.2" width="20.8" height="5.6" rx="1.2" fill="#000" />
+        <circle cx="18" cy="10.4" r="4.4" fill="#000" />
+      </mask>
+      <rect x="4" y="4" width="32" height="32" rx="8" fill={body} mask={`url(#${maskId})`} />
+      <circle cx="18" cy="10.4" r="3.6" fill={node} />
     </svg>
   );
 }

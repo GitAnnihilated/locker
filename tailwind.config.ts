@@ -20,6 +20,8 @@ const config: Config = {
         text: "hsl(var(--text) / <alpha-value>)",
         subtle: "hsl(var(--subtle) / <alpha-value>)",
         faint: "hsl(var(--faint) / <alpha-value>)",
+        "brand-ink": "hsl(var(--brand-ink) / <alpha-value>)",
+        "brand-node": "hsl(var(--brand-node) / <alpha-value>)",
         accent: "hsl(var(--accent) / <alpha-value>)",
         "accent-strong": "hsl(var(--accent-strong) / <alpha-value>)",
         "accent-soft": "hsl(var(--accent-soft) / <alpha-value>)",

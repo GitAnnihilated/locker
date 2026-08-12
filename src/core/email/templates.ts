@@ -2,27 +2,27 @@
  * Email HTML templates. Table-based layout with inline styles only — email
  * clients strip <style> blocks and modern CSS unpredictably, so this is the
  * one place in the app that deliberately doesn't use the Tailwind/CSS-vars
- * design system. Colors are hardcoded to match it anyway (#00573C pine,
- * #77CB34 lime, #FF9500 orange).
+ * design system. Colors are hardcoded to match it anyway (#101F3D navy,
+ * the Locker brand ink).
  *
  * The logo is a styled text lockup, not an image — this app has no hosted
  * asset storage yet. Swap the `logoBlock` for a hosted <img> once one exists;
  * nothing else in these templates needs to change.
  */
 
-const PINE = "#00573C";
-const INK = "#0F1F19";
-const MUTED = "#5B6B63";
-const BORDER = "#E3ECE7";
-const BG = "#F4F8F6";
+const NAVY = "#101F3D";
+const INK = "#0F1B2E";
+const MUTED = "#5B6577";
+const BORDER = "#E1E6F0";
+const BG = "#F4F6FA";
 
 const logoBlock = `
   <tr>
     <td style="padding:32px 40px 8px 40px;">
       <table role="presentation" cellpadding="0" cellspacing="0">
         <tr>
-          <td style="background:${PINE};width:32px;height:32px;border-radius:9px;text-align:center;vertical-align:middle;">
-            <span style="font-size:16px;line-height:32px;">🔒</span>
+          <td style="background:${NAVY};width:32px;height:32px;border-radius:9px;text-align:center;vertical-align:middle;">
+            <span style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;line-height:32px;color:#FFFFFF;">L</span>
           </td>
           <td style="padding-left:10px;font-size:18px;font-weight:700;color:${INK};font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
             Locker
@@ -69,7 +69,7 @@ function codeBlock(code: string): string {
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
           <tr>
             <td style="background:${BG};border-radius:12px;padding:20px 0;text-align:center;">
-              <span style="font-family:'SF Mono',Consolas,Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:${PINE};">
+              <span style="font-family:'SF Mono',Consolas,Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:${NAVY};">
                 ${code}
               </span>
             </td>

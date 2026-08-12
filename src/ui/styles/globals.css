@@ -13,26 +13,30 @@
 :root {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
-  /* neutrals — warm "paper" with a faint green cast so they sit under the
-     brand greens without reading clinical. Light-first. */
-  --bg: 150 24% 98%;
+  /* neutrals — cool "paper" with a faint navy cast so they sit under the
+     brand navy/blue without reading clinical. Light-first. */
+  --bg: 220 25% 98%;
   --surface: 0 0% 100%;
-  --surface-2: 150 24% 99%;
-  --muted: 150 16% 95.5%;
-  --border: 150 14% 90%;
-  --border-strong: 150 12% 82%;
-  --text: 168 34% 11%;   /* dark green-ink, not pure black */
-  --subtle: 165 10% 40%;
-  --faint: 160 12% 58%;
+  --surface-2: 220 25% 99%;
+  --muted: 220 18% 95.5%;
+  --border: 220 15% 90%;
+  --border-strong: 220 13% 82%;
+  --text: 222 45% 11%;   /* dark navy-ink, not pure black */
+  --subtle: 220 12% 40%;
+  --faint: 218 12% 58%;
 
-  /* brand — Locker's three colors.
-     accent  = #00573C deep pine  (primary: buttons, links, focus)
-     lime    = #77CB34            (lively highlights, graphics, gradients)
-     orange  = #FF9500            (warm energy: streaks, achievements, CTAs)
-     A school can re-theme by overriding ONLY these. */
-  --accent: 161 100% 17%;
-  --accent-strong: 162 100% 13%; /* hover/active */
-  --accent-soft: 152 44% 95%;    /* tint fills / soft badges */
+  /* brand — Locker's mark colors (see src/ui/brand/Logo.tsx).
+     brand-ink   = #101F3D deep navy  (the logo body — inverts in dark mode)
+     brand-node  = #3E6BE0 accent blue (the logo's connection-node dot)
+     accent      = same blue family as brand-node (primary: buttons, links, focus)
+     lime/orange stay as supporting tints for module variety, unrelated to
+     the primary mark. A school can re-theme by overriding ONLY these. */
+  --brand-ink: 220 58% 15%;
+  --brand-node: 223 72% 56%;
+
+  --accent: 223 72% 56%;
+  --accent-strong: 224 70% 47%; /* hover/active */
+  --accent-soft: 222 60% 95%;   /* tint fills / soft badges */
   --accent-fg: 0 0% 100%;
 
   --brand-lime: 93 59% 50%;
@@ -40,8 +44,8 @@
   --brand-orange: 35 100% 50%;
   --brand-orange-soft: 35 100% 95%;
 
-  /* status — success stays a distinct clean green; warning reuses brand
-     orange so streaks/energy moments feel on-brand. */
+  /* status — success/warning/danger are semantic, kept independent of the
+     primary brand hue so they stay universally readable as green/orange/red. */
   --success: 152 55% 38%;
   --success-soft: 152 45% 94%;
   --warning: 35 100% 50%;
@@ -49,8 +53,8 @@
   --danger: 356 68% 52%;
   --danger-soft: 356 70% 96%;
 
-  --ring: 161 100% 24%;
-  --shadow-color: 165 45% 12%;
+  --ring: 223 72% 56%;
+  --shadow-color: 222 45% 12%;
 
   /* radius scale */
   --radius-sm: 8px;
@@ -72,21 +76,25 @@
 }
 
 .dark {
-  --bg: 168 30% 6%;
-  --surface: 168 22% 9%;
-  --surface-2: 168 20% 11%;
-  --muted: 168 16% 15%;
-  --border: 168 14% 20%;
-  --border-strong: 168 12% 28%;
-  --text: 150 24% 96%;
-  --subtle: 155 12% 64%;
-  --faint: 155 12% 46%;
+  --bg: 222 32% 7%;
+  --surface: 222 24% 10%;
+  --surface-2: 222 22% 12%;
+  --muted: 222 18% 16%;
+  --border: 222 16% 21%;
+  --border-strong: 222 14% 29%;
+  --text: 220 30% 96%;
+  --subtle: 218 14% 65%;
+  --faint: 218 14% 47%;
 
-  /* deep pine is too dark on a dark bg — brighten the interactive green */
-  --accent: 145 60% 46%;
-  --accent-strong: 145 60% 54%;
-  --accent-soft: 160 40% 16%;
-  --accent-fg: 168 45% 8%;
+  /* deep navy ink would vanish on a dark bg — the logo body inverts to a
+     near-white ink here (see Logo.tsx), and the interactive blue brightens. */
+  --brand-ink: 220 30% 92%;
+  --brand-node: 224 85% 68%;
+
+  --accent: 224 85% 65%;
+  --accent-strong: 224 85% 72%;
+  --accent-soft: 224 45% 18%;
+  --accent-fg: 222 45% 9%;
 
   --brand-lime: 93 62% 56%;
   --brand-lime-soft: 93 30% 18%;
@@ -98,7 +106,7 @@
   --warning-soft: 35 40% 16%;
   --danger-soft: 356 40% 16%;
 
-  --ring: 145 60% 50%;
+  --ring: 224 85% 65%;
   --shadow-color: 0 0% 0%;
 }
 

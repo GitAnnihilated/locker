@@ -18,14 +18,14 @@ export const metadata: Metadata = {
     template: "%s · Locker",
   },
   description:
-    "Homework, marketplace, projects, and achievements — the daily tool built for students, not schools.",
+    "Homework, groups, marketplace, achievements, and parent-teacher meetings — the collaboration layer for students, teachers, and principals.",
   applicationName: "Locker",
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F7FAF8" },
-    { media: "(prefers-color-scheme: dark)", color: "#0B1512" },
+    { media: "(prefers-color-scheme: light)", color: "#F9F9FB" },
+    { media: "(prefers-color-scheme: dark)", color: "#0C1018" },
   ],
 };
 

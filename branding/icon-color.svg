@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <mask id="doorway">
+      <rect x="10" y="10" width="80" height="80" rx="20" fill="#fff"/>
+      <rect x="38" y="26" width="14" height="36" rx="4" fill="#000"/>
+      <rect x="38" y="48" width="52" height="14" rx="3" fill="#000"/>
+      <circle cx="45" cy="26" r="11" fill="#000"/>
+    </mask></defs>
+  
+  <g>
+    <rect x="10" y="10" width="80" height="80" rx="20" fill="#101F3D" mask="url(#doorway)"/>
+    <circle cx="45" cy="26" r="9" fill="#3E6BE0"/></g>
+</svg>
