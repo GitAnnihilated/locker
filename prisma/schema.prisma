@@ -152,6 +152,11 @@ model User {
   ptmSlotsCreated PTMSlot[]    @relation("PTMSlotTeacher")
   ptmBookings     PTMBooking[] @relation("PTMBookingBookedBy")
 
+  // Student Notebook + personal tasks — see those modules below.
+  notesAboutMe   StudentNote[]  @relation("StudentNoteStudent")
+  notesAuthored  StudentNote[]  @relation("StudentNoteAuthor")
+  personalTasks  PersonalTask[]
+
   @@index([createdAt])
 }
 
@@ -235,6 +240,7 @@ model Class {
   classMessages  ClassMessage[]
   events         Event[]
   ptmSlots       PTMSlot[]
+  studentNotes   StudentNote[]
 
   @@index([schoolId])
   @@index([inviteCode])
@@ -1172,4 +1178,70 @@ model PTMBooking {
   bookedBy User    @relation("PTMBookingBookedBy", fields: [bookedById], references: [id])
 
   @@index([bookedById])
+}
+
+// ============================================================
+// MODULE: STUDENT NOTEBOOK  (teacher-facing, non-AI)
+// ------------------------------------------------------------------
+// Built from real teacher feedback: "maintain academic performance,
+// attendance, participation, behaviour, achievements and areas for
+// improvement in one place" and "record incomplete work and
+// automatically identify students needing follow-up." Deliberately NOT
+// an attendance/gradebook system (that stays the school's existing ERP)
+// — this is a lightweight, ongoing log of small observations per
+// student, quick enough to write in the moment, that a teacher can
+// later read back in one place instead of reconstructing it from memory
+// at report-card time. Homework follow-up itself needs no new table —
+// it's read straight off the existing Homework/HomeworkStatus data (see
+// src/modules/notebook/queries.ts).
+// ============================================================
+
+enum NoteCategory {
+  BEHAVIOR
+  PARTICIPATION
+  HOMEWORK
+  ACHIEVEMENT
+  GENERAL
+}
+
+model StudentNote {
+  id         String       @id @default(uuid())
+  classId    String
+  studentId  String
+  authorId   String // the teacher who wrote it — see requireClassTeacher
+  category   NoteCategory @default(GENERAL)
+  content    String
+  createdAt  DateTime     @default(now())
+  deletedAt  DateTime?
+
+  class   Class @relation(fields: [classId], references: [id])
+  student User  @relation("StudentNoteStudent", fields: [studentId], references: [id])
+  author  User  @relation("StudentNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([classId, studentId, createdAt])
+}
+
+// ============================================================
+// MODULE: PERSONAL TASKS  (ad hoc "things people asked me to do")
+// ------------------------------------------------------------------
+// Explicitly NOT a duty roster or coordinator workflow tool — those are
+// the school's existing ERP's job. This is a private, per-user list for
+// the informal asks that live nowhere official (a hallway request, a
+// WhatsApp message from a coordinator). Available to any user, not just
+// teachers — a personal task list has no reason to be role-gated.
+// ============================================================
+
+model PersonalTask {
+  id          String    @id @default(uuid())
+  userId      String
+  title       String
+  note        String?
+  dueAt       DateTime?
+  done        Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, done, dueAt])
 }

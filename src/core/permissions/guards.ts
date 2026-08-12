@@ -61,13 +61,27 @@ export async function requireTeacherOrPrincipal(userId: string) {
   return requireRole(userId, ["TEACHER", "PRINCIPAL"]);
 }
 
-/** Throws unless the user is the teacher-of-record for this class (PTM ownership). */
+/** Throws unless the user is the teacher-of-record for this class (PTM ownership, Student Notebook). */
 export async function requireClassTeacher(userId: string, classId: string) {
   const klass = await db.class.findUniqueOrThrow({ where: { id: classId }, select: { teacherId: true } });
   if (klass.teacherId !== userId) {
-    throw new Error("Only this class's teacher can manage its PTM slots.");
+    throw new Error("Only this class's teacher can do that.");
   }
   return klass;
+}
+
+/**
+ * Throws unless the caller teaches a class the given student is actually a
+ * member of — the Student Notebook's core authorization check. A teacher
+ * can only ever see/log notes about, or verify achievements for, students
+ * genuinely in one of their own classes, never anyone else.
+ */
+export async function requireTeacherOfStudent(teacherId: string, studentId: string, classId: string) {
+  const membership = await db.membership.findUnique({
+    where: { userId_classId: { userId: studentId, classId } },
+  });
+  if (!membership) throw new Error("That student isn't a member of this class.");
+  return requireClassTeacher(teacherId, classId);
 }
 
 /** Throws if the user is neither the Class Founder nor a Class Moderator. */

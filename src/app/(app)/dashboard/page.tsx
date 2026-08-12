@@ -39,6 +39,7 @@ const MODULE_TINT: Record<string, "accent" | "lime" | "orange"> = {
   events: "lime",
   classmates: "accent",
   ptm: "lime",
+  tasks: "accent",
 };
 
 export default async function DashboardPage() {
@@ -181,11 +182,18 @@ export default async function DashboardPage() {
                   <div className="min-w-0">
                     <p className="font-semibold">{c.subject ? `${c.subject} — ${c.name}` : c.name}</p>
                   </div>
-                  <Link href={`/ptm?class=${c.id}`}>
-                    <Button variant="secondary" size="sm">
-                      PTM slots
-                    </Button>
-                  </Link>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link href={`/students/${c.id}`}>
+                      <Button variant="secondary" size="sm">
+                        Roster
+                      </Button>
+                    </Link>
+                    <Link href={`/ptm?class=${c.id}`}>
+                      <Button variant="secondary" size="sm">
+                        PTM slots
+                      </Button>
+                    </Link>
+                  </div>
                 </CardBody>
               </Card>
             ))}

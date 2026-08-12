@@ -33,7 +33,8 @@ export type ModuleId =
   | "clubs"
   | "events"
   | "classmates"
-  | "ptm";
+  | "ptm"
+  | "tasks";
 
 export interface ModuleDefinition {
   id: ModuleId;
@@ -72,6 +73,14 @@ export const MODULES: ModuleDefinition[] = [
     icon: "💬",
     href: "/messages",
     description: "Direct messages with anyone in your school.",
+    enabled: true,
+  },
+  {
+    id: "tasks",
+    name: "My Tasks",
+    icon: "✅",
+    href: "/tasks",
+    description: "The ad hoc things people ask you to do.",
     enabled: true,
   },
 
