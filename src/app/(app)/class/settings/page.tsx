@@ -32,11 +32,11 @@ export default async function ClassSettingsPage({
   // School Settings to manage a class they aren't a member of; everyone
   // else lands here without a classId and gets their own active class, same
   // as before.
-  let klass: { id: string; name: string; founderId: string; inviteCode: string; schoolId: string; courseCode: string | null } | null = null;
+  let klass: { id: string; name: string; founderId: string; inviteCode: string; schoolId: string; courseCode: string | null; subject: string | null } | null = null;
   if (requestedClassId) {
     klass = await db.class.findUnique({
       where: { id: requestedClassId },
-      select: { id: true, name: true, founderId: true, inviteCode: true, schoolId: true, courseCode: true },
+      select: { id: true, name: true, founderId: true, inviteCode: true, schoolId: true, courseCode: true, subject: true },
     });
   } else {
     const membership = await getActiveMembership(user.id);
@@ -48,6 +48,7 @@ export default async function ClassSettingsPage({
         inviteCode: membership.class.inviteCode,
         schoolId: membership.class.schoolId,
         courseCode: membership.class.courseCode,
+        subject: membership.class.subject,
       };
     }
   }
@@ -97,7 +98,13 @@ export default async function ClassSettingsPage({
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{t.classUnit} settings</h1>
-        <p className="text-sm text-subtle">{klass.name}{klass.courseCode ? ` · ${klass.courseCode}` : ""}</p>
+        <p className="text-sm text-subtle">
+          {klass.name}
+          {klass.courseCode ? ` · ${klass.courseCode}` : ""}
+          {klass.subject ? ` · ${klass.subject}` : ""}
+          {" · "}
+          {members.length} student{members.length === 1 ? "" : "s"}
+        </p>
       </div>
 
       {isFounder && (

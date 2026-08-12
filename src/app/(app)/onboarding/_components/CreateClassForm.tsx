@@ -6,7 +6,7 @@ import { GradeSectionSelect } from "@/core/membership/components/GradeSectionSel
 import { createClass } from "@/core/membership/actions";
 import { isRedirectError } from "@/lib/isRedirectError";
 
-/** Submitting makes the student the Class Founder immediately — no approval step. */
+/** Submitting makes the teacher the Class Founder/teacher-of-record immediately. */
 export function CreateClassForm({ schoolId }: { schoolId: string }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +28,7 @@ export function CreateClassForm({ schoolId }: { schoolId: string }) {
         }
         className="space-y-3"
       >
-        <GradeSectionSelect />
+        <GradeSectionSelect showSubject />
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? "Creating…" : "Create class"}
         </Button>

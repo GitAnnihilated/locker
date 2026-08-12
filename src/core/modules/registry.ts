@@ -32,7 +32,8 @@ export type ModuleId =
   | "notes"
   | "clubs"
   | "events"
-  | "classmates";
+  | "classmates"
+  | "ptm";
 
 export interface ModuleDefinition {
   id: ModuleId;
@@ -100,6 +101,15 @@ export const MODULES: ModuleDefinition[] = [
     icon: "👥",
     href: "/groups",
     description: "Find classmates for project groups.",
+    enabled: true,
+    educationTypes: ["SCHOOL"],
+  },
+  {
+    id: "ptm",
+    name: "Parent-Teacher Meetings",
+    icon: "🗓️",
+    href: "/ptm",
+    description: "Book or manage parent-teacher meeting slots.",
     enabled: true,
     educationTypes: ["SCHOOL"],
   },

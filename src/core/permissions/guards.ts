@@ -1,4 +1,5 @@
 import { db } from "@/core/db/client";
+import type { UserRole } from "@prisma/client";
 import {
   canGovernClass,
   canManageClass,
@@ -34,6 +35,39 @@ async function loadSchoolContext(schoolId: string): Promise<SchoolContext> {
     founderId: school.founderId,
     moderatorUserIds: moderators.map((m) => m.userId),
   };
+}
+
+/**
+ * Global role gate — always re-reads User.role fresh from the DB, never
+ * trusts a client-supplied role. Used ahead of institution-creating actions
+ * (createSchool, createClass for SCHOOL) where the pre-existing
+ * founder/moderator model has nothing to check yet (the row doesn't exist).
+ */
+export async function requireRole(userId: string, allowed: UserRole[]) {
+  const user = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true } });
+  if (!allowed.includes(user.role)) {
+    throw new Error(`This requires the ${allowed.join(" or ").toLowerCase()} role.`);
+  }
+  return user.role;
+}
+
+/** Only a PRINCIPAL may create/own a School. */
+export async function requirePrincipal(userId: string) {
+  return requireRole(userId, ["PRINCIPAL"]);
+}
+
+/** A TEACHER or PRINCIPAL may create a Class. Students may only join one. */
+export async function requireTeacherOrPrincipal(userId: string) {
+  return requireRole(userId, ["TEACHER", "PRINCIPAL"]);
+}
+
+/** Throws unless the user is the teacher-of-record for this class (PTM ownership). */
+export async function requireClassTeacher(userId: string, classId: string) {
+  const klass = await db.class.findUniqueOrThrow({ where: { id: classId }, select: { teacherId: true } });
+  if (klass.teacherId !== userId) {
+    throw new Error("Only this class's teacher can manage its PTM slots.");
+  }
+  return klass;
 }
 
 /** Throws if the user is neither the Class Founder nor a Class Moderator. */

@@ -4,6 +4,7 @@ import { Card, CardBody, CardHeader } from "@/ui/components/Card";
 import { getSchool, getSchoolClasses } from "@/core/school/queries";
 import { getTerminology } from "@/core/education/config";
 import { EducationTypeForm } from "./_components/EducationTypeForm";
+import { RoleSelectForm } from "./_components/RoleSelectForm";
 import { SchoolSearch } from "./_components/SchoolSearch";
 import { CreateSchoolForm } from "./_components/CreateSchoolForm";
 import { CreateClassForm } from "./_components/CreateClassForm";
@@ -11,14 +12,16 @@ import { CreateCourseForm } from "./_components/CreateCourseForm";
 import { JoinByCodeForm } from "./_components/JoinByCodeForm";
 
 /**
- * Student-first onboarding, now three steps for a first-time signup (the
- * first is skipped entirely for anyone who's already chosen — including
- * every pre-existing account, which defaults to SCHOOL and never sees it
- * unless they explicitly ask via Settings):
+ * Onboarding, now up to four steps for a first-time signup (each is skipped
+ * entirely for anyone who's already chosen — including every pre-existing
+ * account, which defaults to SCHOOL/STUDENT and never sees it again unless
+ * they explicitly ask via Settings):
  *   0. Where are you studying? — School or College/University.
- *   1. Find (or create) your school — findable the moment any student makes it.
- *   2. Create a class/course there (you become its Founder) or join one with a code.
- * A student never has to wait on anyone's approval to start using Locker.
+ *   1. SCHOOL only: are you a Student, Teacher, or Principal? (College keeps
+ *      its original student-first model unchanged — no role gate there.)
+ *   2. Find (or create) your school — a Principal creates one; everyone
+ *      else can only search/join, since a school is a real institution now.
+ *   3. Create a class there (Teachers/Principals only) or join one with a code.
  */
 export default async function OnboardingPage({
   searchParams,
@@ -29,6 +32,8 @@ export default async function OnboardingPage({
   const { school: schoolId } = await searchParams;
   const t = getTerminology(user.educationType);
   const isCollege = user.educationType === "COLLEGE";
+  const canCreateSchool = isCollege || user.role === "PRINCIPAL";
+  const canCreateClass = isCollege || user.role === "TEACHER" || user.role === "PRINCIPAL";
 
   if (!user.educationTypeSetAt) {
     return (
@@ -40,6 +45,20 @@ export default async function OnboardingPage({
           </p>
         </div>
         <EducationTypeForm />
+      </div>
+    );
+  }
+
+  if (!isCollege && !user.roleSetAt) {
+    return (
+      <div className="mx-auto max-w-lg space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">What's your role at school?</h1>
+          <p className="mt-1 text-sm text-subtle">
+            This decides what you can create — you can&apos;t change it yourself later, so pick carefully.
+          </p>
+        </div>
+        <RoleSelectForm />
       </div>
     );
   }
@@ -62,26 +81,30 @@ export default async function OnboardingPage({
             </p>
           </div>
 
-          <Card>
-            <CardHeader className="font-semibold">{t.createClassCta}</CardHeader>
-            <CardBody>
-              <p className="mb-3 text-sm text-subtle">
-                You&apos;ll be the {t.classCreatedRole} — you get an invite code and
-                link to share with classmates right away.
-              </p>
-              {isCollege ? <CreateCourseForm schoolId={school.id} /> : <CreateClassForm schoolId={school.id} />}
-            </CardBody>
-          </Card>
+          {canCreateClass && (
+            <>
+              <Card>
+                <CardHeader className="font-semibold">{t.createClassCta}</CardHeader>
+                <CardBody>
+                  <p className="mb-3 text-sm text-subtle">
+                    You&apos;ll be the {t.classCreatedRole} — you get an invite code and
+                    link to share with classmates right away.
+                  </p>
+                  {isCollege ? <CreateCourseForm schoolId={school.id} /> : <CreateClassForm schoolId={school.id} />}
+                </CardBody>
+              </Card>
 
-          <div className="text-center text-xs uppercase tracking-wide text-subtle">
-            or
-          </div>
+              <div className="text-center text-xs uppercase tracking-wide text-subtle">
+                or
+              </div>
+            </>
+          )}
 
           <Card>
             <CardHeader className="font-semibold">Join with a code</CardHeader>
             <CardBody>
               <p className="mb-3 text-sm text-subtle">
-                {t.classUnitPlural} are private — ask a classmate for their invite code or link.
+                {t.classUnitPlural} are private — ask a {isCollege ? "classmate" : "teacher"} for their invite code or link.
               </p>
               <JoinByCodeForm />
             </CardBody>
@@ -104,12 +127,18 @@ export default async function OnboardingPage({
         <CardHeader className="font-semibold">Search {t.orgUnit.toLowerCase()}s</CardHeader>
         <CardBody className="space-y-3">
           <SchoolSearch orgUnit={t.orgUnit} classUnit={t.classUnit} classUnitPlural={t.classUnitPlural} />
-          <div className="border-t border-border pt-3">
-            <p className="mb-2 text-xs font-medium text-subtle">
-              Can&apos;t find your {t.orgUnit.toLowerCase()}? You&apos;ll be its founder.
+          {canCreateSchool ? (
+            <div className="border-t border-border pt-3">
+              <p className="mb-2 text-xs font-medium text-subtle">
+                Can&apos;t find your {t.orgUnit.toLowerCase()}? You&apos;ll be its founder.
+              </p>
+              <CreateSchoolForm orgUnit={t.orgUnit} classUnit={t.classUnit} classUnitPlural={t.classUnitPlural} />
+            </div>
+          ) : (
+            <p className="border-t border-border pt-3 text-xs text-subtle">
+              Can&apos;t find your school? Ask your school&apos;s Principal to set it up on Locker first.
             </p>
-            <CreateSchoolForm orgUnit={t.orgUnit} classUnit={t.classUnit} classUnitPlural={t.classUnitPlural} />
-          </div>
+          )}
         </CardBody>
       </Card>
 

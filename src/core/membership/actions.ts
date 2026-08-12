@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
-import { requireClassGovernor, requireClassManagerOrSchoolAuthority } from "@/core/permissions/guards";
+import {
+  requireClassGovernor,
+  requireClassManagerOrSchoolAuthority,
+  requireTeacherOrPrincipal,
+} from "@/core/permissions/guards";
 import { generateCode } from "@/lib/ids";
 import { handleActionError } from "@/lib/actionError";
 import { awardPoints } from "@/core/rewards/engine";
@@ -41,6 +45,12 @@ const gradeSectionSchema = z.object({
   section: z.string().refine((v) => SECTION_OPTIONS.includes(v), "Choose a section"),
 });
 
+// Subject is required at creation time (a teacher always teaches a specific
+// subject) but stays a separate, optional-on-parse concern from
+// gradeSectionSchema so renameClass — which never touches subject — doesn't
+// need to invent a value just to satisfy this schema.
+const subjectSchema = z.string().trim().min(1, "Enter a subject").max(60);
+
 const courseSchema = z.object({
   name: z.string().trim().min(2, "Enter a course name").max(80),
   courseCode: z.string().trim().max(20).optional(),
@@ -57,15 +67,18 @@ async function postJoinRedirect(userId: string): Promise<string> {
 
 /**
  * Creates a class inside an ALREADY-CHOSEN school (see src/core/school for
- * search/create-school). The creator instantly becomes the Class Founder —
- * no approval step, so a student's first class is usable in one action.
+ * search/create-school). The creator becomes the Class Founder AND
+ * Class.teacherId (for SCHOOL) — no separate "claim" step, so a teacher's
+ * first class is usable in one action.
  *
- * SCHOOL: the name is composed from Grade + Section dropdowns, not typed —
- * see core/membership/classNaming.ts. COLLEGE: a Class doubles as a Course
- * (see EducationType/Class.courseCode), so this takes a free-text course
- * name + optional code instead — same table, same Membership/founder
- * mechanics, just a different input shape. Which branch runs is decided
- * from the caller's own DB row, never a client-supplied flag.
+ * SCHOOL: gated to TEACHER/PRINCIPAL (see requireTeacherOrPrincipal) — a
+ * student can join a class but never create one. The name is composed from
+ * Grade + Section dropdowns, not typed, plus a required subject — see
+ * core/membership/classNaming.ts. COLLEGE: keeps the original student-first,
+ * no-gatekeeping model — a Class doubles as a Course (see EducationType/
+ * Class.courseCode), taking a free-text course name + optional code instead.
+ * Which branch runs (and which role gate applies) is decided from the
+ * caller's own DB row, never a client-supplied flag.
  */
 export async function createClass(schoolId: string, formData: FormData): Promise<{ error: string } | undefined> {
   try {
@@ -75,6 +88,7 @@ export async function createClass(schoolId: string, formData: FormData): Promise
 
     let name: string;
     let courseCode: string | null = null;
+    let subject: string | null = null;
 
     if (isCollege) {
       const parsed = courseSchema.safeParse({
@@ -85,12 +99,16 @@ export async function createClass(schoolId: string, formData: FormData): Promise
       name = parsed.data.name;
       courseCode = parsed.data.courseCode?.toUpperCase() || null;
     } else {
+      await requireTeacherOrPrincipal(user.id);
       const parsed = gradeSectionSchema.safeParse({
         grade: formData.get("grade"),
         section: formData.get("section"),
       });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid class");
+      const parsedSubject = subjectSchema.safeParse(formData.get("subject"));
+      if (!parsedSubject.success) throw new Error(parsedSubject.error.issues[0]?.message ?? "Enter a subject");
       name = composeClassName(parsed.data.grade, parsed.data.section);
+      subject = parsedSubject.data;
     }
 
     // Exact-name match within the same school is the same class/course —
@@ -109,7 +127,9 @@ export async function createClass(schoolId: string, formData: FormData): Promise
       data: {
         schoolId,
         founderId: user.id,
+        teacherId: isCollege ? null : user.id,
         name,
+        subject,
         courseCode,
         inviteCode: generateCode(6),
       },

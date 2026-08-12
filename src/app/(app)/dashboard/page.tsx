@@ -20,6 +20,7 @@ import { EmptyState } from "@/ui/components/EmptyState";
 import { StatTile } from "@/ui/components/StatTile";
 import { InviteCard } from "@/modules/invites/components/InviteCard";
 import { LeaveClassButton } from "@/modules/invites/components/LeaveClassButton";
+import { getTeacherClasses } from "@/modules/ptm/queries";
 
 const MODULE_TINT: Record<string, "accent" | "lime" | "orange"> = {
   homework: "accent",
@@ -37,6 +38,7 @@ const MODULE_TINT: Record<string, "accent" | "lime" | "orange"> = {
   clubs: "orange",
   events: "lime",
   classmates: "accent",
+  ptm: "lime",
 };
 
 export default async function DashboardPage() {
@@ -45,13 +47,17 @@ export default async function DashboardPage() {
   // freshly-completed Profile Setup shows up immediately, not after re-login.
   const dbUser = await db.user.findUnique({
     where: { id: user.id },
-    select: { name: true, nickname: true, educationType: true },
+    select: { name: true, nickname: true, educationType: true, role: true },
   });
   const displayName = dbUser?.nickname || dbUser?.name;
   const educationType = dbUser?.educationType ?? "SCHOOL";
   const isCollege = educationType === "COLLEGE";
   const t = getTerminology(educationType);
-  const membership = await getActiveMembership(user.id);
+  const isTeacher = !isCollege && (dbUser?.role === "TEACHER" || dbUser?.role === "PRINCIPAL");
+  const [membership, teacherClasses] = await Promise.all([
+    getActiveMembership(user.id),
+    isTeacher ? getTeacherClasses(user.id) : Promise.resolve([]),
+  ]);
 
   if (!membership) {
     // Still check for school authority — a School Founder with no class
@@ -162,6 +168,30 @@ export default async function DashboardPage() {
         inviteCode={membership.class.inviteCode}
         memberCount={memberCount}
       />
+
+      {isTeacher && teacherClasses.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.1em] text-faint">
+            My classes
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {teacherClasses.map((c) => (
+              <Card key={c.id}>
+                <CardBody className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold">{c.subject ? `${c.subject} — ${c.name}` : c.name}</p>
+                  </div>
+                  <Link href={`/ptm?class=${c.id}`}>
+                    <Button variant="secondary" size="sm">
+                      PTM slots
+                    </Button>
+                  </Link>
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.1em] text-faint">

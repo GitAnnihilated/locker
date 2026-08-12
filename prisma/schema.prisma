@@ -39,6 +39,19 @@ enum EducationType {
   COLLEGE
 }
 
+// Global account role — separate axis from EducationType. Authorization for
+// creating/owning institutions and classes derives from this, never a
+// boolean flag and never trusted from the client (every check re-reads this
+// column from the DB). STUDENT is the default so every pre-existing account
+// keeps behaving exactly as it did before this field existed. Deliberately
+// NOT class-scoped like Membership.role — this is "what kind of person are
+// they at this school," decided once at onboarding, not per-class.
+enum UserRole {
+  STUDENT
+  TEACHER
+  PRINCIPAL
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
@@ -60,6 +73,13 @@ model User {
   // not something anything else gates on.
   educationType      EducationType @default(SCHOOL)
   educationTypeSetAt DateTime?
+
+  // Same "ask once, soft marker" pattern as educationType/educationTypeSetAt
+  // above. roleSetAt is null until onboarding (or Settings) makes an
+  // explicit choice; nothing else gates on it besides the onboarding flow
+  // itself deciding whether to ask.
+  role      UserRole  @default(STUDENT)
+  roleSetAt DateTime?
 
   // Login brute-force protection (see core/auth/auth.ts authorize()): a
   // simple DB-backed counter/lockout. No Redis in this project, so this is
@@ -126,6 +146,11 @@ model User {
   clubMemberships        ClubMember[]
   eventsOrganized        Event[]         @relation("EventOrganizer")
   eventAttendances       EventAttendee[]
+
+  // MODULE: PTM — a teacher's own slots, and whichever slots this user (as
+  // the current-user side of a booking — see PTMBooking) has booked.
+  ptmSlotsCreated PTMSlot[]    @relation("PTMSlotTeacher")
+  ptmBookings     PTMBooking[] @relation("PTMBookingBookedBy")
 
   @@index([createdAt])
 }
@@ -209,6 +234,7 @@ model Class {
   classResources ClassResource[]
   classMessages  ClassMessage[]
   events         Event[]
+  ptmSlots       PTMSlot[]
 
   @@index([schoolId])
   @@index([inviteCode])
@@ -1092,4 +1118,58 @@ model EventAttendee {
 
   @@unique([eventId, userId])
   @@index([userId])
+}
+
+// ============================================================
+// MODULE: PTM  (Parent-Teacher Meeting scheduling)
+// ------------------------------------------------------------------
+// Deliberately small: a teacher opens a set of fixed-length timeslots for a
+// class on a given day; anyone books one and it's taken. There is no
+// separate PARENT role in this app today, so the "who booked it" side is
+// just the current user (in practice, a student booking on their own
+// family's behalf) — the booking side is intentionally generic (bookedById
+// is any User) so a future PARENT role slots in with zero schema change.
+//
+// Double-booking is prevented at the DB level two ways: PTMBooking.slotId
+// is @unique (one booking per slot, full stop — a second insert for the
+// same slot violates the constraint even under a race), and the slot's own
+// status is flipped to BOOKED in the same transaction as the insert.
+// ============================================================
+
+enum PTMSlotStatus {
+  AVAILABLE
+  BOOKED
+  CANCELLED // set by the teacher on an AVAILABLE slot they no longer want open
+}
+
+model PTMSlot {
+  id        String        @id @default(uuid())
+  classId   String
+  teacherId String
+  date      DateTime      @db.Date // the calendar day of the meeting, no time component
+  startTime String // "10:00", 24h — a display/sort string, not a DateTime, since these are always short fixed local slots with no timezone math needed
+  endTime   String // "10:10"
+  status    PTMSlotStatus @default(AVAILABLE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  class   Class       @relation(fields: [classId], references: [id])
+  teacher User        @relation("PTMSlotTeacher", fields: [teacherId], references: [id])
+  booking PTMBooking?
+
+  @@unique([teacherId, date, startTime])
+  @@index([classId, date])
+}
+
+model PTMBooking {
+  id         String   @id @default(uuid())
+  slotId     String   @unique // DB-level double-booking guard — see module comment
+  bookedById String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  slot     PTMSlot @relation(fields: [slotId], references: [id])
+  bookedBy User    @relation("PTMBookingBookedBy", fields: [bookedById], references: [id])
+
+  @@index([bookedById])
 }

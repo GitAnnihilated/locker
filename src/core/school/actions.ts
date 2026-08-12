@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
-import { requireSchoolFounder, requireSchoolModerator } from "@/core/permissions/guards";
+import { requireSchoolFounder, requireSchoolModerator, requirePrincipal } from "@/core/permissions/guards";
 import { generateCode } from "@/lib/ids";
 import { normalizeSchoolName, nameSimilarity } from "@/lib/similarity";
 import { handleActionError } from "@/lib/actionError";
@@ -70,13 +70,15 @@ export async function findSimilarSchools(name: string): Promise<SchoolSearchResu
 const createSchoolSchema = z.object({ name: z.string().min(2).max(120) });
 
 /**
- * No approval, no waitlist: the first student to look for their school and
- * not find it just creates it and instantly owns it (School Founder). This
- * is the "never require school approval" requirement — growth cannot stall
- * on someone else's admin queue.
+ * SCHOOL: gated to the PRINCIPAL role — a school is a real institution, and
+ * only its Principal creates/owns it (see src/core/permissions/guards.ts
+ * requirePrincipal). COLLEGE keeps the original no-gatekeeping model: the
+ * first student to look for their college and not find it just creates it,
+ * since there's no Principal-equivalent role for College accounts (see
+ * role architecture — COLLEGE only has STUDENT/TEACHER).
  *
  * Still hard-blocks an EXACT normalized duplicate ("Lincoln High School" vs
- * "lincoln   high  school!!") — that's not a judgment call the student needs
+ * "lincoln   high  school!!") — that's not a judgment call the creator needs
  * to make, it's the same school. Near-duplicates are caught earlier by
  * findSimilarSchools as an advisory "did you mean" prompt instead, since
  * only a human can tell two similarly-named schools apart.
@@ -86,6 +88,11 @@ export async function createSchool(
 ): Promise<{ error: string } | { id: string; name: string; slug: string }> {
   try {
     const user = await requireUser();
+    const dbUser = await db.user.findUniqueOrThrow({ where: { id: user.id }, select: { educationType: true } });
+    if (dbUser.educationType === "SCHOOL") {
+      await requirePrincipal(user.id);
+    }
+
     const parsed = createSchoolSchema.safeParse({ name: formData.get("name") });
     if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid name");
 
