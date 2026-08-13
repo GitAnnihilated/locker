@@ -1,0 +1,285 @@
+
+  @font-face {
+    font-family: "Outfit";
+    font-weight: 700;
+    src: url("/fonts/Outfit-Bold.ttf") format("truetype");
+    font-display: swap;
+  }
+
+  :root {
+    --ink: #101F3D;
+    --ink-soft: #3B4568;
+    --subtle: #57607A;
+    --faint: #8891AA;
+    --bg: #F7F8FB;
+    --surface: #FFFFFF;
+    --surface-2: #EEF1F8;
+    --border: #E3E7F0;
+    --accent: #3E6BE0;
+    --accent-soft: #E9EFFC;
+    --accent-ink: #1D3F99;
+    --tip-bg: #FFF6E9;
+    --tip-border: #F3DDB0;
+    --tip-ink: #8A5A0B;
+    --code-bg: #101F3D;
+    --code-ink: #DCE6FF;
+    --shadow: 0 1px 2px rgba(16, 31, 61, 0.04), 0 8px 24px rgba(16, 31, 61, 0.06);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #EDEFF7;
+      --ink-soft: #C7CDE2;
+      --subtle: #A6ADC6;
+      --faint: #7A8199;
+      --bg: #0C111C;
+      --surface: #131A29;
+      --surface-2: #1A2236;
+      --border: #262F47;
+      --accent: #7C9DF2;
+      --accent-soft: #1C2946;
+      --accent-ink: #C9D8FF;
+      --tip-bg: #2A2010;
+      --tip-border: #47380F;
+      --tip-ink: #E3B15A;
+      --code-bg: #0A0F1A;
+      --code-ink: #B9CBFF;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ink: #EDEFF7;
+    --ink-soft: #C7CDE2;
+    --subtle: #A6ADC6;
+    --faint: #7A8199;
+    --bg: #0C111C;
+    --surface: #131A29;
+    --surface-2: #1A2236;
+    --border: #262F47;
+    --accent: #7C9DF2;
+    --accent-soft: #1C2946;
+    --accent-ink: #C9D8FF;
+    --tip-bg: #2A2010;
+    --tip-border: #47380F;
+    --tip-ink: #E3B15A;
+    --code-bg: #0A0F1A;
+    --code-ink: #B9CBFF;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink-soft);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: "Outfit", -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    text-wrap: balance;
+    line-height: 1.15;
+    margin: 0;
+  }
+
+  a { color: var(--accent-ink); text-decoration-color: var(--border); }
+  a:hover { text-decoration-color: currentColor; }
+
+  code, .code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 0.88em;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  @media (min-width: 980px) {
+    .shell {
+      grid-template-columns: minmax(0, 720px) 220px;
+      column-gap: 56px;
+      align-items: start;
+    }
+  }
+
+  /* ---- top bar ---- */
+  .topbar {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .mark {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: var(--ink); position: relative; flex-shrink: 0;
+  }
+  .mark::before, .mark::after {
+    content: ""; position: absolute; background: var(--surface);
+  }
+  .mark::before { left: 12px; top: 9px; width: 5px; height: 12px; border-radius: 2px; }
+  .mark::after { left: 12px; top: 17px; width: 17px; height: 5px; border-radius: 2px; }
+  .mark .dot {
+    position: absolute; left: 10.5px; top: 6.5px; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--accent); border: 2px solid var(--surface);
+  }
+  .brandline { display: flex; flex-direction: column; line-height: 1.15; }
+  .brandline b { font-family: "Outfit"; color: var(--ink); font-size: 17px; }
+  .brandline span { color: var(--faint); font-size: 12.5px; letter-spacing: 0.02em; }
+
+  /* ---- hero ---- */
+  .hero {
+    padding: 40px 0 8px;
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--accent-ink); background: var(--accent-soft);
+    font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 100px; margin-bottom: 18px;
+  }
+  .hero h1 { font-size: clamp(30px, 4vw, 42px); font-weight: 700; letter-spacing: -0.01em; }
+  .hero p.lede {
+    margin-top: 14px; font-size: 18px; line-height: 1.55; color: var(--subtle); max-width: 640px;
+  }
+
+  .not-erp {
+    margin-top: 26px; display: flex; gap: 14px; flex-wrap: wrap;
+  }
+  .pill {
+    border: 1px solid var(--border); background: var(--surface); border-radius: 12px;
+    padding: 10px 16px; font-size: 13.5px; color: var(--subtle); display: flex; align-items: baseline; gap: 8px;
+  }
+  .pill b { color: var(--ink); font-family: "Outfit"; font-weight: 700; font-size: 14px; }
+
+  /* ---- content sections ---- */
+  section { padding: 46px 0; border-top: 1px solid var(--border); }
+  section:first-of-type { border-top: none; }
+
+  .kicker {
+    font-size: 12.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--faint); margin-bottom: 8px;
+  }
+  h2 { font-size: 26px; font-weight: 700; letter-spacing: -0.005em; }
+  h2 + p.dek { margin: 10px 0 0; color: var(--subtle); font-size: 16px; max-width: 620px; }
+
+  h3 { font-size: 18px; font-weight: 700; margin-top: 28px; margin-bottom: 10px; }
+
+  p { margin: 12px 0; max-width: 660px; }
+  ul, ol { margin: 12px 0; padding-left: 22px; max-width: 640px; }
+  li { margin: 6px 0; }
+  strong { color: var(--ink); font-weight: 650; }
+
+  /* ---- numbered steps (Getting Started only — a real sequence) ---- */
+  .steps { display: flex; flex-direction: column; gap: 0; margin-top: 22px; }
+  .step {
+    display: grid; grid-template-columns: 40px 1fr; gap: 16px;
+    padding: 18px 0; border-top: 1px solid var(--border);
+  }
+  .step:first-child { border-top: none; padding-top: 4px; }
+  .step .n {
+    font-family: "Outfit"; font-weight: 700; font-size: 15px; color: var(--accent);
+    width: 32px; height: 32px; border-radius: 9px; background: var(--accent-soft);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step h4 { margin: 4px 0 4px; font-family: "Outfit"; font-size: 16px; color: var(--ink); font-weight: 700; }
+  .step p { margin: 0; font-size: 15px; color: var(--subtle); }
+
+  /* ---- feature cards ---- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 22px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+  }
+  .card h4 { font-family: "Outfit"; font-size: 15.5px; color: var(--ink); margin: 0 0 6px; font-weight: 700; }
+  .card p { margin: 0; font-size: 14px; color: var(--subtle); }
+  .card .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--accent-ink); background: var(--accent-soft);
+    padding: 3px 9px; border-radius: 100px; margin-bottom: 10px;
+  }
+
+  /* ---- definition rows (roles, notebook, etc.) ---- */
+  .deflist { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--surface); margin-top: 18px; }
+  .defrow { display: grid; grid-template-columns: 160px 1fr; gap: 18px; padding: 16px 20px; border-top: 1px solid var(--border); }
+  .defrow:first-child { border-top: none; }
+  .defrow dt { font-family: "Outfit"; font-weight: 700; color: var(--ink); font-size: 14.5px; }
+  .defrow dd { margin: 0; color: var(--subtle); font-size: 14.5px; }
+  @media (max-width: 560px) { .defrow { grid-template-columns: 1fr; gap: 4px; } }
+
+  /* ---- callout ---- */
+  .tip {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--tip-bg); border: 1px solid var(--tip-border); border-radius: 12px;
+    padding: 14px 18px; margin: 20px 0; max-width: 660px;
+  }
+  .tip .icon { font-size: 17px; line-height: 1.4; }
+  .tip p { margin: 0; color: var(--tip-ink); font-size: 14.5px; }
+  .tip strong { color: var(--tip-ink); }
+
+  /* ---- code chip ---- */
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--code-bg); color: var(--code-ink);
+    padding: 3px 10px; border-radius: 7px; font-weight: 600; letter-spacing: 0.03em;
+  }
+
+  /* ---- table ---- */
+  .tablewrap { overflow-x: auto; margin-top: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 480px; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  th { color: var(--faint); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { color: var(--ink); font-weight: 600; }
+
+  /* ---- faq ---- */
+  details {
+    border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px;
+    background: var(--surface); margin: 10px 0; max-width: 660px;
+  }
+  summary {
+    cursor: pointer; font-weight: 650; color: var(--ink); list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--faint); font-weight: 400; font-size: 20px; flex-shrink: 0; }
+  details[open] summary::after { content: "–"; }
+  details p { margin: 10px 0 0; font-size: 14.5px; }
+
+  /* ---- side rail ---- */
+  .rail { display: none; }
+  @media (min-width: 980px) {
+    .rail {
+      display: block; position: sticky; top: 40px; align-self: start;
+      padding-top: 40px;
+    }
+    .rail .railtitle { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); font-weight: 700; margin-bottom: 12px; }
+    .rail a {
+      display: block; padding: 7px 0; font-size: 13.5px; color: var(--subtle);
+      border-left: 2px solid transparent; padding-left: 12px; margin-left: -1px;
+      text-decoration: none;
+    }
+    .rail a:hover { color: var(--ink); border-left-color: var(--border); }
+  }
+
+  .maincol { min-width: 0; }
+
+  footer {
+    max-width: 1180px; margin: 0 auto; padding: 20px 24px 60px;
+    color: var(--faint); font-size: 12.5px; border-top: 1px solid var(--border); margin-top: 20px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card, .step, details { transition: border-color 160ms ease, box-shadow 160ms ease; }
+  }
