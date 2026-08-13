@@ -3,8 +3,9 @@ import { GRADE_OPTIONS, SECTION_OPTIONS } from "../classNaming";
 
 /**
  * Grade + Section dropdowns — replaces free-typing a class name. The
- * subject field is only shown at creation time (renameClass never touches
- * subject — see core/membership/actions.ts) via `showSubject`.
+ * subject field is only shown at creation time via `showSubject` — it's
+ * not a property of the class (a class has many subject teachers, see
+ * ClassTeacher), it's the subject THIS teacher personally teaches here.
  */
 export function GradeSectionSelect({
   defaultGrade,
@@ -49,8 +50,11 @@ export function GradeSectionSelect({
       </div>
       {showSubject && (
         <div>
-          <Label htmlFor="subject">Subject</Label>
+          <Label htmlFor="subject">Subject you teach</Label>
           <Input id="subject" name="subject" placeholder="e.g. Mathematics" defaultValue={defaultSubject ?? ""} required />
+          <p className="mt-1 text-xs text-faint">
+            Other teachers can join this same class later and label their own subject.
+          </p>
         </div>
       )}
     </div>

@@ -6,6 +6,7 @@ import {
   getManagedSchool,
   getSchoolModerators,
   getSchoolClassesForModeration,
+  getSchoolStaff,
 } from "@/core/school/queries";
 import {
   editSchoolInfo,
@@ -21,6 +22,7 @@ import { EditSchoolNameForm } from "@/modules/school-settings/components/EditSch
 import { EmailActionForm } from "@/modules/school-settings/components/EmailActionForm";
 import { ModeratorRow } from "@/modules/school-settings/components/ModeratorRow";
 import { ClassModerationRow } from "@/modules/school-settings/components/ClassModerationRow";
+import { StaffCodePanel } from "@/modules/school-settings/components/StaffCodePanel";
 
 export default async function SchoolSettingsPage() {
   const user = await requireUser();
@@ -77,7 +79,10 @@ export default async function SchoolSettingsPage() {
     );
   }
 
-  const classes = await getSchoolClassesForModeration(school.id);
+  const [classes, staff] = await Promise.all([
+    getSchoolClassesForModeration(school.id),
+    isPrincipalGoverned ? getSchoolStaff(school.id) : Promise.resolve([]),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -91,6 +96,29 @@ export default async function SchoolSettingsPage() {
           <CardHeader className="font-semibold">School name</CardHeader>
           <CardBody>
             <EditSchoolNameForm schoolId={school.id} currentName={school.name} />
+          </CardBody>
+        </Card>
+      )}
+
+      {isFounder && isPrincipalGoverned && school.teacherInviteCode && (
+        <Card>
+          <CardHeader className="font-semibold">Staff code</CardHeader>
+          <CardBody>
+            <p className="mb-3 text-sm text-subtle">
+              Share this with your teachers — they redeem it once to join {school.name} as staff, which is what lets
+              them create or join a class here at all. Generating a new code disables the old one.
+            </p>
+            <StaffCodePanel schoolId={school.id} initialCode={school.teacherInviteCode} />
+            {staff.length > 0 && (
+              <ul className="mt-4 divide-y divide-border border-t border-border pt-2">
+                {staff.map((s) => (
+                  <li key={s.id} className="flex items-center justify-between py-2 text-sm">
+                    <span>{s.user.name ?? s.user.email}</span>
+                    <span className="text-xs text-faint">Joined {new Date(s.joinedAt).toLocaleDateString()}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardBody>
         </Card>
       )}

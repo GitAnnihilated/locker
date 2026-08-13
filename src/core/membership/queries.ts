@@ -35,3 +35,13 @@ export async function getClassMembers(classId: string) {
   });
   return members.map((m) => ({ ...m, user: withCosmetics(m.user) }));
 }
+
+/** Every subject-teacher attached to a class (see ClassTeacher) — SCHOOL only, empty for COLLEGE. */
+export async function getClassTeachers(classId: string) {
+  const rows = await db.classTeacher.findMany({
+    where: { classId },
+    orderBy: { joinedAt: "asc" },
+    include: { teacher: { select: { id: true, name: true, email: true } } },
+  });
+  return rows;
+}

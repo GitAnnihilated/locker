@@ -34,7 +34,8 @@ export type ModuleId =
   | "events"
   | "classmates"
   | "ptm"
-  | "tasks";
+  | "tasks"
+  | "classes";
 
 export interface ModuleDefinition {
   id: ModuleId;
@@ -126,6 +127,16 @@ export const MODULES: ModuleDefinition[] = [
     description: "Book or manage parent-teacher meeting slots.",
     enabled: true,
     educationTypes: ["SCHOOL"],
+  },
+  {
+    id: "classes",
+    name: "Classes",
+    icon: "🏫",
+    href: "/classes",
+    description: "Join another class in your school, or bundle your classes into a group.",
+    enabled: true,
+    educationTypes: ["SCHOOL"],
+    roles: ["TEACHER", "PRINCIPAL"],
   },
 
   // ---- COLLEGE ----

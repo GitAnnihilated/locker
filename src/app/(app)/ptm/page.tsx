@@ -99,7 +99,7 @@ export default async function PTMPage({
                     c.id === activeClassId ? "border-accent bg-accent/10 text-accent" : "border-border text-subtle"
                   }`}
                 >
-                  {c.subject ? `${c.subject} — ${c.name}` : c.name}
+                  {c.name}
                 </Link>
               ))}
             </div>

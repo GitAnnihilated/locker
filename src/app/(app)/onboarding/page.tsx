@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireDbUser } from "@/core/auth/session";
+import { db } from "@/core/db/client";
 import { Card, CardBody, CardHeader } from "@/ui/components/Card";
 import { getSchool, getSchoolClasses } from "@/core/school/queries";
 import { getTerminology } from "@/core/education/config";
@@ -10,6 +11,7 @@ import { CreateSchoolForm } from "./_components/CreateSchoolForm";
 import { CreateClassForm } from "./_components/CreateClassForm";
 import { CreateCourseForm } from "./_components/CreateCourseForm";
 import { JoinByCodeForm } from "./_components/JoinByCodeForm";
+import { JoinSchoolStaffForm } from "./_components/JoinSchoolStaffForm";
 
 /**
  * Onboarding, now up to four steps for a first-time signup (each is skipped
@@ -67,6 +69,17 @@ export default async function OnboardingPage({
     const school = await getSchool(schoolId);
     if (school) {
       const classes = await getSchoolClasses(schoolId);
+
+      // A TEACHER (not the Principal) needs a redeemed staff code before
+      // they can create or join any class here — this is the actual gate
+      // behind "join any class in their school, but not any school."
+      // Principals are always implicitly staff of their own school.
+      const needsStaffCode =
+        !isCollege &&
+        user.role === "TEACHER" &&
+        school.founderId !== user.id &&
+        !(await db.schoolTeacher.findUnique({ where: { schoolId_userId: { schoolId: school.id, userId: user.id } } }));
+
       return (
         <div className="mx-auto max-w-md space-y-6">
           <div className="text-center">
@@ -81,7 +94,20 @@ export default async function OnboardingPage({
             </p>
           </div>
 
-          {canCreateClass && (
+          {needsStaffCode && (
+            <Card>
+              <CardHeader className="font-semibold">Join as staff</CardHeader>
+              <CardBody>
+                <p className="mb-3 text-sm text-subtle">
+                  Ask {school.name}&apos;s Principal for its staff code — you&apos;ll need it before you can create
+                  or join any class here.
+                </p>
+                <JoinSchoolStaffForm />
+              </CardBody>
+            </Card>
+          )}
+
+          {canCreateClass && !needsStaffCode && (
             <>
               <Card>
                 <CardHeader className="font-semibold">{t.createClassCta}</CardHeader>

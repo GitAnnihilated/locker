@@ -1,12 +1,18 @@
 import { db } from "@/core/db/client";
 
-/** Classes this user is the teacher-of-record for — the "which PTM board do I manage" list. */
+/**
+ * Every class this user teaches — whether they created it or joined an
+ * existing one (see ClassTeacher) — with the subject THEY personally
+ * teach there. This is the "which PTM/roster board do I manage" list, and
+ * the single source of truth the dashboard's "My classes" reads from too.
+ */
 export async function getTeacherClasses(userId: string) {
-  return db.class.findMany({
-    where: { teacherId: userId, status: "ACTIVE", deletedAt: null },
-    select: { id: true, name: true, subject: true },
-    orderBy: { name: "asc" },
+  const rows = await db.classTeacher.findMany({
+    where: { teacherId: userId, class: { status: "ACTIVE", deletedAt: null } },
+    select: { subject: true, class: { select: { id: true, name: true } } },
+    orderBy: { class: { name: "asc" } },
   });
+  return rows.map((r) => ({ id: r.class.id, name: r.class.name, subject: r.subject }));
 }
 
 /** All slots (any status) for one class the caller teaches, newest date first, for the manage view. */
@@ -44,7 +50,7 @@ export async function getBookableClasses(userId: string) {
       deletedAt: null,
       ptmSlots: { some: { date: { gte: today }, status: { not: "CANCELLED" } } },
     },
-    select: { id: true, name: true, subject: true, teacher: { select: { name: true } } },
+    select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
   return classes;

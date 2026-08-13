@@ -77,21 +77,31 @@ async function main() {
   });
 
   // PRINCIPAL creates the school.
-  const school = await db.school.upsert({
+  let school = await db.school.upsert({
     where: { slug: "demo-high-school" },
     update: {},
     create: {
       name: "Demo High School",
       slug: "demo-high-school",
       founderId: principal.id,
+      teacherInviteCode: code(),
     },
   });
+  // In case this school already existed from a run before teacherInviteCode existed.
+  if (!school.teacherInviteCode) {
+    school = await db.school.update({ where: { id: school.id }, data: { teacherInviteCode: code() } });
+  }
 
-  // TEACHER joins the school (membership isn't required for school-level
-  // access, but joining a class below is how they become a real member) and
-  // creates a class, assigning a subject. teacherId + founderId both point
-  // at the teacher, mirroring what core/membership/actions.ts's createClass
-  // now does for real users.
+  // TEACHER redeems the school's staff code (required before creating/
+  // joining any class — see requireSchoolStaff), then creates a class.
+  // teacherId + founderId both point at the teacher, mirroring what
+  // core/membership/actions.ts's createClass does for real users.
+  await db.schoolTeacher.upsert({
+    where: { schoolId_userId: { schoolId: school.id, userId: teacher.id } },
+    update: {},
+    create: { schoolId: school.id, userId: teacher.id },
+  });
+
   let klass = await db.class.findFirst({ where: { schoolId: school.id, name: "Grade 10 - Section A" } });
   if (!klass) {
     klass = await db.class.create({
@@ -100,7 +110,6 @@ async function main() {
         founderId: teacher.id,
         teacherId: teacher.id,
         name: "Grade 10 - Section A",
-        subject: "Mathematics",
         inviteCode: code(),
       },
     });
@@ -110,6 +119,14 @@ async function main() {
     where: { userId_classId: { userId: teacher.id, classId: klass.id } },
     update: {},
     create: { userId: teacher.id, classId: klass.id, schoolId: school.id, role: "FOUNDER", verified: true },
+  });
+
+  // Subject now lives on ClassTeacher (a class has many subject teachers),
+  // not on Class itself — see prisma/schema.prisma.
+  await db.classTeacher.upsert({
+    where: { classId_teacherId: { classId: klass.id, teacherId: teacher.id } },
+    update: {},
+    create: { classId: klass.id, teacherId: teacher.id, subject: "Mathematics" },
   });
 
   // STUDENTS join the class.
@@ -155,7 +172,8 @@ async function main() {
   console.log("  Teacher:   teacher@demo.locker");
   console.log("  Student 1: student1@demo.locker");
   console.log("  Student 2: student2@demo.locker");
-  console.log("  School:", school.name, "| Class:", klass.name, "(", klass.subject, ")", "| invite code:", klass.inviteCode);
+  console.log("  School:", school.name, "| Class:", klass.name, "(Mathematics) | invite code:", klass.inviteCode);
+  console.log("  School staff code:", school.teacherInviteCode);
 }
 
 main()

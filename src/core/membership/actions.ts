@@ -9,6 +9,7 @@ import {
   requireClassGovernor,
   requireClassManagerOrSchoolAuthority,
   requireTeacherOrPrincipal,
+  requireSchoolStaff,
 } from "@/core/permissions/guards";
 import { generateCode } from "@/lib/ids";
 import { handleActionError } from "@/lib/actionError";
@@ -71,14 +72,18 @@ async function postJoinRedirect(userId: string): Promise<string> {
  * Class.teacherId (for SCHOOL) — no separate "claim" step, so a teacher's
  * first class is usable in one action.
  *
- * SCHOOL: gated to TEACHER/PRINCIPAL (see requireTeacherOrPrincipal) — a
- * student can join a class but never create one. The name is composed from
- * Grade + Section dropdowns, not typed, plus a required subject — see
- * core/membership/classNaming.ts. COLLEGE: keeps the original student-first,
- * no-gatekeeping model — a Class doubles as a Course (see EducationType/
- * Class.courseCode), taking a free-text course name + optional code instead.
- * Which branch runs (and which role gate applies) is decided from the
- * caller's own DB row, never a client-supplied flag.
+ * SCHOOL: gated to TEACHER/PRINCIPAL (requireTeacherOrPrincipal) AND to
+ * already being staff of THIS school (requireSchoolStaff) — a teacher
+ * can't create a class in a school they haven't joined with their
+ * Principal's staff code, even if they can find it in search. The name is
+ * composed from Grade + Section dropdowns, not typed. There's no "subject"
+ * on the class itself anymore — see ClassTeacher: the creator picks the
+ * subject THEY teach here, exactly the same way a second teacher joining
+ * this same class later would (see joinClassAsTeacher). COLLEGE keeps the
+ * original student-first, no-gatekeeping model — a Class doubles as a
+ * Course (see EducationType/Class.courseCode), taking a free-text course
+ * name + optional code instead. Which branch runs (and which gates apply)
+ * is decided from the caller's own DB row, never a client-supplied flag.
  */
 export async function createClass(schoolId: string, formData: FormData): Promise<{ error: string } | undefined> {
   try {
@@ -88,7 +93,7 @@ export async function createClass(schoolId: string, formData: FormData): Promise
 
     let name: string;
     let courseCode: string | null = null;
-    let subject: string | null = null;
+    let mySubject: string | null = null;
 
     if (isCollege) {
       const parsed = courseSchema.safeParse({
@@ -100,15 +105,16 @@ export async function createClass(schoolId: string, formData: FormData): Promise
       courseCode = parsed.data.courseCode?.toUpperCase() || null;
     } else {
       await requireTeacherOrPrincipal(user.id);
+      await requireSchoolStaff(user.id, schoolId);
       const parsed = gradeSectionSchema.safeParse({
         grade: formData.get("grade"),
         section: formData.get("section"),
       });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid class");
       const parsedSubject = subjectSchema.safeParse(formData.get("subject"));
-      if (!parsedSubject.success) throw new Error(parsedSubject.error.issues[0]?.message ?? "Enter a subject");
+      if (!parsedSubject.success) throw new Error(parsedSubject.error.issues[0]?.message ?? "Enter the subject you teach");
       name = composeClassName(parsed.data.grade, parsed.data.section);
-      subject = parsedSubject.data;
+      mySubject = parsedSubject.data;
     }
 
     // Exact-name match within the same school is the same class/course —
@@ -121,7 +127,7 @@ export async function createClass(schoolId: string, formData: FormData): Promise
       throw new Error(
         isCollege
           ? `"${name}" already exists here. Ask its Course Founder for an invite code instead of creating a duplicate.`
-          : `"${name}" already exists here. Ask its teacher for an invite code instead of creating a duplicate.`,
+          : `"${name}" already exists here — join it as a teacher instead of creating a duplicate.`,
       );
     }
 
@@ -131,7 +137,6 @@ export async function createClass(schoolId: string, formData: FormData): Promise
         founderId: user.id,
         teacherId: isCollege ? null : user.id,
         name,
-        subject,
         courseCode,
         inviteCode: generateCode(6),
       },
@@ -147,10 +152,57 @@ export async function createClass(schoolId: string, formData: FormData): Promise
       },
     });
 
+    if (!isCollege && mySubject) {
+      await db.classTeacher.create({
+        data: { classId: klass.id, teacherId: user.id, subject: mySubject },
+      });
+    }
+
     await awardPoints(user.id, "class_joined", klass.id);
     await awardPoints(user.id, "school_joined", schoolId);
 
     redirect(isCollege ? "/dashboard" : "/homework");
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/**
+ * A teacher joins an EXISTING class in a school they're already staff of
+ * (requireSchoolStaff) — the actual "join any class in their school"
+ * feature. Creates the same ClassTeacher row createClass makes for its
+ * creator, plus a Membership (role TEACHER, not FOUNDER) so the joined
+ * class shows up for them everywhere a normal membership does (Homework
+ * board, getActiveMembership, etc.) without touching class governance.
+ */
+export async function joinClassAsTeacher(classId: string, formData: FormData): Promise<{ error: string } | undefined> {
+  try {
+    const user = await requireUser();
+    await requireTeacherOrPrincipal(user.id);
+
+    const klass = await db.class.findUniqueOrThrow({ where: { id: classId }, select: { schoolId: true, teacherId: true } });
+    if (!klass.teacherId) throw new Error("This isn't a school class.");
+    await requireSchoolStaff(user.id, klass.schoolId);
+
+    const parsedSubject = subjectSchema.safeParse(formData.get("subject"));
+    if (!parsedSubject.success) throw new Error(parsedSubject.error.issues[0]?.message ?? "Enter the subject you teach");
+
+    const already = await db.classTeacher.findUnique({
+      where: { classId_teacherId: { classId, teacherId: user.id } },
+    });
+    if (already) throw new Error("You're already teaching this class.");
+
+    await db.$transaction([
+      db.classTeacher.create({ data: { classId, teacherId: user.id, subject: parsedSubject.data } }),
+      db.membership.upsert({
+        where: { userId_classId: { userId: user.id, classId } },
+        create: { userId: user.id, classId, schoolId: klass.schoolId, role: "TEACHER", verified: true },
+        update: {},
+      }),
+    ]);
+
+    revalidatePath("/dashboard");
+    revalidatePath("/classes");
   } catch (e) {
     return handleActionError(e);
   }
@@ -287,7 +339,12 @@ export async function removeMember(classId: string, targetUserId: string): Promi
       );
     }
 
-    await db.membership.deleteMany({ where: { classId, userId: targetUserId } });
+    // A removed co-teacher's ClassTeacher row would otherwise linger and
+    // keep this class showing up in their "My classes"/PTM/roster lists.
+    await db.$transaction([
+      db.membership.deleteMany({ where: { classId, userId: targetUserId } }),
+      db.classTeacher.deleteMany({ where: { classId, teacherId: targetUserId } }),
+    ]);
     revalidatePath("/class/settings");
   } catch (e) {
     return handleActionError(e);

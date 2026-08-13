@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/core/auth/session";
 import { db } from "@/core/db/client";
-import { getActiveMembership, getClassMembers } from "@/core/membership/queries";
+import { getActiveMembership, getClassMembers, getClassTeachers } from "@/core/membership/queries";
 import { getSchool, getSchoolModerators } from "@/core/school/queries";
 import {
   canManageClass,
@@ -63,7 +63,10 @@ export default async function ClassSettingsPage({
     return <EmptyState icon="🚪" title="Join a class first" />;
   }
 
-  const members = await getClassMembers(klass.id);
+  const [members, classTeachers] = await Promise.all([
+    getClassMembers(klass.id),
+    isTeacherOwned ? getClassTeachers(klass.id) : Promise.resolve([]),
+  ]);
   const moderatorIds = members.filter((m) => m.role === "MODERATOR").map((m) => m.userId);
   const klassCtx = { founderId: klass.founderId, moderatorUserIds: moderatorIds };
 
@@ -111,9 +114,9 @@ export default async function ClassSettingsPage({
         <p className="text-sm text-subtle">
           {klass.name}
           {klass.courseCode ? ` · ${klass.courseCode}` : ""}
-          {klass.subject ? ` · ${klass.subject}` : ""}
           {" · "}
           {members.length} student{members.length === 1 ? "" : "s"}
+          {isTeacherOwned && classTeachers.length > 0 ? ` · ${classTeachers.length} teacher${classTeachers.length === 1 ? "" : "s"}` : ""}
         </p>
       </div>
 
@@ -141,6 +144,22 @@ export default async function ClassSettingsPage({
           <InviteCodePanel classId={klass.id} initialCode={klass.inviteCode} />
         </CardBody>
       </Card>
+
+      {isTeacherOwned && (
+        <Card>
+          <CardHeader className="font-semibold">Teachers ({classTeachers.length})</CardHeader>
+          <CardBody className="p-0">
+            <ul className="divide-y divide-border">
+              {classTeachers.map((ct) => (
+                <li key={ct.id} className="flex items-center justify-between px-4 py-3 text-sm">
+                  <span>{ct.teacher.name ?? ct.teacher.email}</span>
+                  <span className="text-xs text-subtle">{ct.subject}</span>
+                </li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="font-semibold">

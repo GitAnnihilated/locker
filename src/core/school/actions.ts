@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/core/db/client";
 import { requireUser } from "@/core/auth/session";
-import { requireSchoolFounder, requireSchoolModerator, requirePrincipal } from "@/core/permissions/guards";
+import { requireSchoolFounder, requireSchoolModerator, requirePrincipal, requireTeacherOrPrincipal } from "@/core/permissions/guards";
 import { generateCode } from "@/lib/ids";
 import { normalizeSchoolName, nameSimilarity } from "@/lib/similarity";
 import { handleActionError } from "@/lib/actionError";
@@ -112,10 +112,65 @@ export async function createSchool(
       generateCode(4).toLowerCase();
 
     const school = await db.school.create({
-      data: { name: parsed.data.name, slug, founderId: user.id },
+      data: {
+        name: parsed.data.name,
+        slug,
+        founderId: user.id,
+        // SCHOOL only — this is the code a Principal shares with their
+        // teachers so they can join the institution itself (SchoolTeacher),
+        // the actual gate behind createClass/joinClassAsTeacher. COLLEGE
+        // has no such gate, so no code is generated for it.
+        teacherInviteCode: dbUser.educationType === "SCHOOL" ? generateCode(6) : null,
+      },
     });
 
     return { id: school.id, name: school.name, slug: school.slug };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/**
+ * A teacher redeems their Principal's staff code to become staff of a
+ * school (SchoolTeacher) — required before they can create or join any
+ * class there. This is the actual mechanism behind "a teacher can join any
+ * class in their school, but not any school": finding a school in search
+ * is not the same as being allowed to act inside it.
+ */
+export async function joinSchoolAsTeacher(formData: FormData): Promise<{ error: string } | { id: string; name: string }> {
+  try {
+    const user = await requireUser();
+    await requireTeacherOrPrincipal(user.id);
+
+    const code = String(formData.get("code") ?? "").trim().toUpperCase();
+    if (!code) throw new Error("Enter your school's staff code");
+
+    const school = await db.school.findUnique({ where: { teacherInviteCode: code } });
+    if (!school) throw new Error("No school found for that staff code");
+
+    await db.schoolTeacher.upsert({
+      where: { schoolId_userId: { schoolId: school.id, userId: user.id } },
+      create: { schoolId: school.id, userId: user.id },
+      update: {},
+    });
+
+    revalidatePath("/onboarding");
+    return { id: school.id, name: school.name };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/** Principal only — rotates the staff code so a leaked one stops working. */
+export async function regenerateSchoolTeacherCode(schoolId: string): Promise<{ error: string } | string> {
+  try {
+    const user = await requireUser();
+    await requireSchoolFounder(user.id, schoolId);
+
+    const teacherInviteCode = generateCode(6);
+    await db.school.update({ where: { id: schoolId }, data: { teacherInviteCode } });
+    revalidatePath("/school/settings");
+    return teacherInviteCode;
   } catch (e) {
     return handleActionError(e);
   }

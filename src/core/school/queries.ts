@@ -46,9 +46,18 @@ export async function getSchoolClasses(schoolId: string) {
   return classes.map((c) => ({
     id: c.id,
     name: c.name,
-    subject: c.subject,
     memberCount: c._count.memberships,
   }));
+}
+
+/** Staff of a school (SchoolTeacher rows) — for the Principal's School Settings view. */
+export async function getSchoolStaff(schoolId: string) {
+  const staff = await db.schoolTeacher.findMany({
+    where: { schoolId },
+    orderBy: { joinedAt: "asc" },
+    include: { user: { select: { id: true, name: true, email: true, image: true, perks: cosmeticPerksSelect } } },
+  });
+  return staff.map((s) => ({ ...s, user: withCosmetics(s.user) }));
 }
 
 export async function getSchoolModerators(schoolId: string) {

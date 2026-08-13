@@ -10,7 +10,7 @@ import { cosmeticPerksSelect, withCosmetics } from "@/core/rewards/cosmetics";
 export async function getClassRosterWithFollowUp(classId: string) {
   const [members, homeworkIds] = await Promise.all([
     db.membership.findMany({
-      where: { classId, role: { not: "FOUNDER" } }, // the teacher themself isn't "a student to follow up on"
+      where: { classId, role: { notIn: ["FOUNDER", "TEACHER"] } }, // neither the primary teacher nor a co-teacher is "a student to follow up on"
       orderBy: { createdAt: "asc" },
       include: { user: { select: { id: true, name: true, image: true, perks: cosmeticPerksSelect } } },
     }),

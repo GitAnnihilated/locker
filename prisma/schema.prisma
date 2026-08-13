@@ -157,6 +157,12 @@ model User {
   notesAuthored  StudentNote[]  @relation("StudentNoteAuthor")
   personalTasks  PersonalTask[]
 
+  // Staff affiliation (SchoolTeacher), subject-teaching (ClassTeacher), and
+  // compound classes (ClassGroup) — see those models for the full picture.
+  schoolStaffOf     SchoolTeacher[] @relation("SchoolTeacherUser")
+  classTeacherOf    ClassTeacher[]  @relation("ClassTeacherUser")
+  classGroupsCreated ClassGroup[]   @relation("ClassGroupCreator")
+
   @@index([createdAt])
 }
 
@@ -166,7 +172,15 @@ model School {
   slug      String    @unique // e.g. "lincoln-high"
   domain    String? // optional email domain for auto-join, e.g. "@lincoln.edu"
   founderId String // whichever student created the school owns it — no gatekeeping
-  metadata  Json?
+  // SCHOOL only — a Principal shares this with staff so a teacher can join
+  // the *institution* itself (SchoolTeacher), separate from any one class's
+  // inviteCode. Null for COLLEGE, and for any SCHOOL not yet using this
+  // flow (existing schools can generate one later — see
+  // regenerateSchoolTeacherCode). This is the actual gate behind "a teacher
+  // can join any class in their school, but not any school" — a teacher
+  // must redeem this once before they can create/join a class here at all.
+  teacherInviteCode String? @unique
+  metadata          Json?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -175,6 +189,8 @@ model School {
   classes    Class[]
   listings   MarketplaceListing[]
   moderators SchoolModerator[]
+  teachers   SchoolTeacher[]
+  classGroups ClassGroup[]
 
   // College modules — clubs/events belong to the institution (School row),
   // not any one Class/Course, since they span the whole campus.
@@ -183,6 +199,27 @@ model School {
 
   @@index([slug])
   @@index([founderId])
+}
+
+/**
+ * Plain staff affiliation with a school — redeemed via School.teacherInviteCode.
+ * Deliberately powerless on its own (no moderation rights, unlike
+ * SchoolModerator): it only answers "is this person actually staff here,"
+ * which is what gates createClass and joinClassAsTeacher for SCHOOL. A
+ * Principal is always implicitly staff of their own school (School.founderId)
+ * and never needs a row here.
+ */
+model SchoolTeacher {
+  id       String   @id @default(uuid())
+  schoolId String
+  userId   String
+  joinedAt DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id])
+  user   User   @relation("SchoolTeacherUser", fields: [userId], references: [id])
+
+  @@unique([schoolId, userId])
+  @@index([schoolId])
 }
 
 // School-wide moderators, assigned by the School Founder. Distinct from class
@@ -212,9 +249,14 @@ enum ClassStatus {
 model Class {
   id         String      @id @default(uuid())
   schoolId   String
-  founderId  String // whichever student created the class owns it
-  teacherId  String? // reserved: set once a verified teacher claims the class (not implemented yet)
+  founderId  String // whichever student created the class owns it (SCHOOL: always the creating teacher/Principal)
+  teacherId  String? // set for every SCHOOL class (governance owner + the SCHOOL/COLLEGE discriminator); always null for COLLEGE
   name       String // "Grade 10-B" or "AP Biology - Period 3"; for a COLLEGE user this IS their Course name
+  // DEPRECATED — a class (a group of students) is taught by several
+  // teachers in several subjects, so "subject" can't be one property of
+  // the class itself anymore. See ClassTeacher.subject, which is per
+  // teacher-class relationship instead. Column kept (nullable, unused by
+  // new code) rather than dropped, so no historical data is lost.
   subject    String?
   // COLLEGE only ("PHYS101") — a Class doubles as a Course for COLLEGE
   // users (see EducationType), so this is just an extra optional field
@@ -242,14 +284,24 @@ model Class {
   ptmSlots       PTMSlot[]
   studentNotes   StudentNote[]
 
+  // Which teachers teach this class, and in what subject each of them
+  // teaches it — see ClassTeacher. This is also how a teacher "joins" an
+  // existing class (createClass creates one of these for the creator too,
+  // so every teacher-class relationship goes through the same table).
+  classTeachers    ClassTeacher[]
+  classGroupMembers ClassGroupMember[]
+
   @@index([schoolId])
   @@index([inviteCode])
   @@index([founderId])
 }
 
-// Class-scoped role. FOUNDER = created the class. MODERATOR = promoted by the
-// founder. TEACHER is reserved for the future claim flow (see Class.teacherId)
-// and is not assignable anywhere in current app logic.
+// Class-scoped role. FOUNDER = created the class (SCHOOL: the class's
+// primary/original teacher). MODERATOR = promoted by the founder, COLLEGE
+// only. TEACHER = a co-teacher who joined an existing SCHOOL class (see
+// joinClassAsTeacher) — they get a Membership row (so getActiveMembership/
+// the Homework board etc. work for them normally) alongside their real
+// ClassTeacher row (which carries the subject they teach there).
 enum Role {
   STUDENT
   MODERATOR
@@ -274,6 +326,66 @@ model Membership {
   @@unique([userId, classId])
   @@index([classId])
   @@index([schoolId])
+}
+
+/**
+ * Which teachers teach a given class, and what subject each one teaches
+ * there — SCHOOL only. This is the actual mechanism behind "teachers can
+ * join any class in their school, but not any school": createClass makes
+ * one of these for the creator (their chosen subject); joinClassAsTeacher
+ * lets any other SchoolTeacher of the same school add themselves the same
+ * way. A class's Founder/Class.teacherId stays the one governance owner
+ * (rename/archive/remove-student) regardless of how many ClassTeacher
+ * rows exist — this table is about subject-teaching, not ownership.
+ */
+model ClassTeacher {
+  id        String   @id @default(uuid())
+  classId   String
+  teacherId String
+  subject   String
+  joinedAt  DateTime @default(now())
+
+  class   Class @relation(fields: [classId], references: [id])
+  teacher User  @relation("ClassTeacherUser", fields: [teacherId], references: [id])
+
+  @@unique([classId, teacherId])
+  @@index([classId])
+  @@index([teacherId])
+}
+
+/**
+ * A "compound class" — bundles several existing classes (e.g. every
+ * section of Grade 10 that one teacher teaches Math to) under one name,
+ * so a teacher can think of/manage them as a single unit instead of
+ * repeating the same action four times. Deliberately a thin grouping
+ * layer, not a new content-hosting model: homework/PTM/etc. still belong
+ * to the individual Class rows.
+ */
+model ClassGroup {
+  id          String   @id @default(uuid())
+  schoolId    String
+  name        String
+  createdById String
+  createdAt   DateTime @default(now())
+
+  school    School             @relation(fields: [schoolId], references: [id])
+  createdBy User               @relation("ClassGroupCreator", fields: [createdById], references: [id])
+  members   ClassGroupMember[]
+
+  @@index([schoolId])
+}
+
+model ClassGroupMember {
+  id      String @id @default(uuid())
+  groupId String
+  classId String
+
+  group ClassGroup @relation(fields: [groupId], references: [id])
+  class Class      @relation(fields: [classId], references: [id])
+
+  @@unique([groupId, classId])
+  @@index([groupId])
+  @@index([classId])
 }
 
 // ============================================================

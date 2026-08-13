@@ -61,13 +61,40 @@ export async function requireTeacherOrPrincipal(userId: string) {
   return requireRole(userId, ["TEACHER", "PRINCIPAL"]);
 }
 
-/** Throws unless the user is the teacher-of-record for this class (PTM ownership, Student Notebook). */
+/**
+ * Throws unless the caller is one of THIS class's subject teachers (any
+ * ClassTeacher row, not just the original creator/Founder) — PTM slots,
+ * the Student Notebook, and roster access are all per-subject-teacher
+ * activities, not governance. Renaming/archiving/removing a student stays
+ * Founder-only (see requireClassGovernor) — this is deliberately broader.
+ */
 export async function requireClassTeacher(userId: string, classId: string) {
-  const klass = await db.class.findUniqueOrThrow({ where: { id: classId }, select: { teacherId: true } });
-  if (klass.teacherId !== userId) {
-    throw new Error("Only this class's teacher can do that.");
+  const ct = await db.classTeacher.findUnique({
+    where: { classId_teacherId: { classId, teacherId: userId } },
+  });
+  if (!ct) throw new Error("Only a teacher of this class can do that.");
+  return ct;
+}
+
+/**
+ * Throws unless the caller is already staff of this SCHOOL — its Principal
+ * (School.founderId), or holds a SchoolTeacher row (redeemed via
+ * School.teacherInviteCode). This is the actual gate behind "a teacher can
+ * join any class in their school, but not any school": createClass and
+ * joinClassAsTeacher both require this before touching a school they
+ * haven't been invited into. COLLEGE never calls this — it keeps its
+ * original no-gatekeeping model.
+ */
+export async function requireSchoolStaff(userId: string, schoolId: string) {
+  const school = await db.school.findUniqueOrThrow({ where: { id: schoolId }, select: { founderId: true } });
+  if (school.founderId === userId) return;
+
+  const staff = await db.schoolTeacher.findUnique({
+    where: { schoolId_userId: { schoolId, userId } },
+  });
+  if (!staff) {
+    throw new Error("You need to join this school with your Principal's staff code first.");
   }
-  return klass;
 }
 
 /**

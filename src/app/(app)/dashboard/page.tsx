@@ -40,6 +40,7 @@ const MODULE_TINT: Record<string, "accent" | "lime" | "orange"> = {
   classmates: "accent",
   ptm: "lime",
   tasks: "accent",
+  classes: "orange",
 };
 
 export default async function DashboardPage() {
