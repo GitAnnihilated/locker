@@ -54,7 +54,7 @@ const BODY_HTML = `<div class="topbar">
           <div class="n">2</div>
           <div>
             <h4>Find your school and join with your staff code</h4>
-            <p>Search for your school by name. If it's already on Locker, you'll be asked for a <span class="chip">staff code</span> — get this from your Principal. It's what proves you're actually staff there, before you can create or join a single class.</p>
+            <p>Search for your school by name. If it's already on Locker, you'll be asked for a <span class="chip">staff code</span> — get this from your Principal or IT team. It's what proves you're actually staff there, before you can create or join a single class.</p>
           </div>
         </div>
         <div class="step">

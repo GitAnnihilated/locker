@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/ui/components/Button";
 import { Input, Label, Select, Textarea } from "@/ui/components/Input";
+import { FileUploadInput } from "@/ui/components/FileUploadInput";
 import { createAchievement, updateAchievement } from "../actions";
 import { CATEGORY_META, LEVEL_META, VISIBILITY_META } from "../meta";
 import type { PortfolioAchievement } from "../queries";
@@ -100,24 +101,16 @@ export function AchievementForm({
       </div>
 
       <div>
-        <Label htmlFor="certificateUrl">Certificate link (optional)</Label>
-        <Input
-          id="certificateUrl"
+        <Label htmlFor="certificateUpload">Certificate (optional)</Label>
+        <FileUploadInput
           name="certificateUrl"
-          type="url"
-          placeholder="https://…"
-          defaultValue={achievement?.certificateUrl ?? undefined}
+          label="Certificate"
+          defaultValue={achievement?.certificateUrl}
         />
       </div>
       <div>
-        <Label htmlFor="photoUrl">Photo link (optional)</Label>
-        <Input
-          id="photoUrl"
-          name="photoUrl"
-          type="url"
-          placeholder="https://…"
-          defaultValue={achievement?.photoUrl ?? undefined}
-        />
+        <Label htmlFor="photoUpload">Photo (optional)</Label>
+        <FileUploadInput name="photoUrl" label="Photo" accept="image/*" defaultValue={achievement?.photoUrl} />
       </div>
       <div>
         <Label htmlFor="link">Reference link (optional)</Label>
