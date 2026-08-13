@@ -1,10 +1,8 @@
 "use server";
 
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { requireUser } from "@/core/auth/session";
 import { handleActionError } from "@/lib/actionError";
-import { getR2Client, R2_BUCKET, R2_PUBLIC_URL } from "./r2";
+import { getSupabaseServiceClient, STORAGE_BUCKET } from "./supabase";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8MB — generous for a compressed image or a normal PDF, not for video
 const ALLOWED_TYPES = new Set([
@@ -16,8 +14,9 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 /**
- * Returns a short-lived presigned PUT URL — the browser uploads the file
- * bytes directly to R2, never through this server, so a large upload
+ * Returns a short-lived signed upload URL/token — the browser uploads the
+ * file bytes directly to Supabase Storage (see FileUploadInput.tsx's
+ * uploadToSignedUrl call), never through this server, so a large upload
  * doesn't tie up a server function the whole time. Postgres only ever
  * stores the resulting public URL (see any *Url column across the schema:
  * Achievement.certificateUrl, GroupResource.url, ClassResource.url, …) —
@@ -25,7 +24,7 @@ const ALLOWED_TYPES = new Set([
  */
 export async function createUploadUrl(
   formData: FormData,
-): Promise<{ error: string } | { uploadUrl: string; publicUrl: string }> {
+): Promise<{ error: string } | { bucket: string; path: string; token: string; publicUrl: string }> {
   try {
     const user = await requireUser();
 
@@ -45,17 +44,15 @@ export async function createUploadUrl(
     // uploads of "photo.jpg" never collide — never trust the original
     // filename for anything beyond a display hint.
     const ext = fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
-    const key = `uploads/${user.id}/${crypto.randomUUID()}.${ext}`;
+    const path = `uploads/${user.id}/${crypto.randomUUID()}.${ext}`;
 
-    const command = new PutObjectCommand({
-      Bucket: R2_BUCKET,
-      Key: key,
-      ContentType: contentType,
-      ContentLength: size,
-    });
-    const uploadUrl = await getSignedUrl(getR2Client(), command, { expiresIn: 300 });
+    const client = getSupabaseServiceClient();
+    const { data, error } = await client.storage.from(STORAGE_BUCKET).createSignedUploadUrl(path);
+    if (error) throw new Error(error.message);
 
-    return { uploadUrl, publicUrl: `${R2_PUBLIC_URL}/${key}` };
+    const { data: publicData } = client.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+
+    return { bucket: STORAGE_BUCKET, path, token: data.token, publicUrl: publicData.publicUrl };
   } catch (e) {
     return handleActionError(e);
   }

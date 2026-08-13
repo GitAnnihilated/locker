@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Input } from "./Input";
 import { createUploadUrl } from "@/core/storage/actions";
+import { getSupabaseBrowserClient } from "@/core/storage/supabaseBrowser";
 import { compressImage } from "@/lib/compressImage";
 
 /**
- * Uploads directly to R2 from the browser (never through our own server —
- * see createUploadUrl) and writes the resulting public URL into a hidden
- * field named `name`, so the parent <form> submits exactly the same
- * *Url string every existing action already expects (Achievement.
+ * Uploads directly to Supabase Storage from the browser (never through our
+ * own server — see createUploadUrl) and writes the resulting public URL
+ * into a hidden field named `name`, so the parent <form> submits exactly
+ * the same *Url string every existing action already expects (Achievement.
  * certificateUrl/photoUrl, GroupResource.url, ClassResource.url, …) —
  * no action-side changes needed to start using this.
  */
@@ -44,12 +45,11 @@ export function FileUploadInput({
         return;
       }
 
-      const putResponse = await fetch(result.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": toUpload.type },
-        body: toUpload,
-      });
-      if (!putResponse.ok) throw new Error("Upload failed — try again.");
+      const supabase = getSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from(result.bucket)
+        .uploadToSignedUrl(result.path, result.token, toUpload);
+      if (uploadError) throw new Error(uploadError.message || "Upload failed — try again.");
 
       setUrl(result.publicUrl);
     } catch (e) {
