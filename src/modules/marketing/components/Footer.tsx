@@ -12,6 +12,13 @@ const COLUMNS = [
     ],
   },
   {
+    title: "Company",
+    links: [
+      { label: "Creator", href: "/creator" },
+      { label: "Guide", href: "/guide" },
+    ],
+  },
+  {
     title: "Account",
     links: [
       { label: "Sign in", href: "/login" },
