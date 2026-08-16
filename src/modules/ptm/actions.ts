@@ -13,6 +13,7 @@ const createSlotsSchema = z.object({
   startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid start time"),
   endTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid end time"),
   slotLength: z.coerce.number().int().min(5).max(120),
+  reservedFor: z.string().trim().max(120).optional(),
 });
 
 /**
@@ -22,6 +23,14 @@ const createSlotsSchema = z.object({
  * overlaps an already-created slot is a no-op for those exact
  * (teacherId, date, startTime) rows — the @@unique constraint on PTMSlot
  * makes createMany's skipDuplicates the correct behavior, not an error.
+ *
+ * reservedFor is an optional plain-text label ("this slot is for Aarav
+ * Shah") — see the schema comment on PTMSlot.reservedFor. When a window
+ * produces multiple slots, the SAME label is applied to all of them,
+ * since a real single-student reservation should be created with a
+ * one-slot window (date/start/end matching slotLength exactly) — batching
+ * several slots under one student's name would be a mistake, not a
+ * feature, so the UI only shows the field once you're at a 1-slot window.
  */
 export async function createPTMSlots(classId: string, formData: FormData): Promise<{ error: string } | undefined> {
   try {
@@ -33,6 +42,7 @@ export async function createPTMSlots(classId: string, formData: FormData): Promi
       startTime: formData.get("startTime"),
       endTime: formData.get("endTime"),
       slotLength: formData.get("slotLength"),
+      reservedFor: formData.get("reservedFor") || undefined,
     });
     if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid slot window");
 
@@ -49,6 +59,7 @@ export async function createPTMSlots(classId: string, formData: FormData): Promi
         date,
         startTime: w.startTime,
         endTime: w.endTime,
+        reservedFor: parsed.data.reservedFor || null,
       })),
       skipDuplicates: true,
     });

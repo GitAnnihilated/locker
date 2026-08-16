@@ -10,6 +10,7 @@ type Slot = {
   startTime: string;
   endTime: string;
   status: "AVAILABLE" | "BOOKED" | "CANCELLED";
+  reservedFor: string | null;
   booking: { bookedBy: { name: string } } | null;
 };
 
@@ -37,6 +38,9 @@ export function TeacherSlotList({ slots }: { slots: Slot[] }) {
               <div key={slot.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                 <span className="font-medium">
                   {slot.startTime}–{slot.endTime}
+                  {slot.reservedFor && slot.status !== "BOOKED" && (
+                    <span className="ml-2 text-xs font-normal text-accent">for {slot.reservedFor}</span>
+                  )}
                 </span>
                 {slot.status === "BOOKED" ? (
                   <span className="text-xs text-subtle">Booked by {slot.booking?.bookedBy.name}</span>

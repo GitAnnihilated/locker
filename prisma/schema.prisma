@@ -1268,6 +1268,13 @@ model PTMSlot {
   startTime String // "10:00", 24h — a display/sort string, not a DateTime, since these are always short fixed local slots with no timezone math needed
   endTime   String // "10:10"
   status    PTMSlotStatus @default(AVAILABLE)
+  // A plain text label, not a User FK — a teacher pre-labeling "this slot
+  // is for Aarav Shah" (e.g. scheduling in roster order, or after a phone
+  // call) so it's visible before anyone's actually booked it. Deliberately
+  // doesn't restrict who can book the slot — it's a coordination note, not
+  // an access-control mechanism. The real booking (whoever ends up
+  // claiming it) still goes through PTMBooking.bookedById as always.
+  reservedFor String?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
