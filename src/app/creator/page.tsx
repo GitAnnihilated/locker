@@ -224,7 +224,7 @@ export default function CreatorPage() {
                   Try Locker
                 </Button>
               </Link>
-              <Link href="mailto:hello@golocker.xyz">
+              <Link href="mailto:rajveerpd14@gmail.com">
                 <Button size="lg" variant="secondary" className="!bg-accent-strong !text-accent-fg hover:!brightness-110">
                   Give Feedback
                 </Button>
