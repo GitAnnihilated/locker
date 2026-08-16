@@ -24,7 +24,7 @@ export function JoinSchoolStaffForm() {
       }
     >
       <div className="flex gap-2">
-        <Input name="code" placeholder="Staff code from your Principal" required className="uppercase" />
+        <Input name="code" placeholder="Staff code from your Principal/IT Admin" required className="uppercase" />
         <Button type="submit" disabled={pending}>
           {pending ? "Joining…" : "Join"}
         </Button>

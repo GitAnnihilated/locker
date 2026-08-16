@@ -28,7 +28,7 @@ export function Footer() {
           <div className="max-w-xs">
             <Logo size={24} />
             <p className="mt-3 text-sm text-subtle">
-              The collaboration layer for students, teachers, and principals —
+              The collaboration layer for students, teachers, and Principals/IT Admins —
               classes, groups, PTMs, and real achievements in one place.
             </p>
           </div>
@@ -57,7 +57,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-border pt-6 text-xs text-faint sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Locker. Built for students, teachers, and principals.</p>
+          <p>© {new Date().getFullYear()} Locker. Built for students, teachers, and Principals/IT Admins.</p>
         </div>
       </div>
     </footer>

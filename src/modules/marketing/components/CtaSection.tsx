@@ -14,7 +14,7 @@ export function CtaSection() {
             Your class is one invite code away.
           </h2>
           <p className="mx-auto mt-4 max-w-md text-accent-fg/80">
-            No setup fee, no contract, no seat licenses — free for every student, teacher, and principal.
+            Free for every student and teacher — $85/month per school for a Principal/IT Admin to set one up.
           </p>
           <div className="mt-8">
             <Link href="/signup">

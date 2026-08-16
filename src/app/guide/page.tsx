@@ -47,14 +47,14 @@ const BODY_HTML = `<div class="topbar">
           <div class="n">1</div>
           <div>
             <h4>Create your account and pick "Teacher"</h4>
-            <p>Sign up with your email. When asked whether you're a Student, Teacher, or Principal, choose Teacher — this can't be changed later, so it's worth getting right the first time.</p>
+            <p>Sign up with your email. When asked whether you're a Student, Teacher, or Principal/IT Admin, choose Teacher — this can't be changed later, so it's worth getting right the first time.</p>
           </div>
         </div>
         <div class="step">
           <div class="n">2</div>
           <div>
             <h4>Find your school and join with your staff code</h4>
-            <p>Search for your school by name. If it's already on Locker, you'll be asked for a <span class="chip">staff code</span> — get this from your Principal or IT team. It's what proves you're actually staff there, before you can create or join a single class.</p>
+            <p>Search for your school by name. If it's already on Locker, you'll be asked for a <span class="chip">staff code</span> — get this from your Principal/IT Admin. It's what proves you're actually staff there, before you can create or join a single class.</p>
           </div>
         </div>
         <div class="step">
@@ -75,7 +75,7 @@ const BODY_HTML = `<div class="topbar">
 
       <div class="tip">
         <span class="icon">🔑</span>
-        <p><strong>Two codes, two purposes.</strong> Your <em>staff code</em> (from the Principal) gets you into the school. Each class's own <em>invite code</em> (yours to generate) gets students into that specific class. Don't mix them up.</p>
+        <p><strong>Two codes, two purposes.</strong> Your <em>staff code</em> (from the Principal/IT Admin) gets you into the school. Each class's own <em>invite code</em> (yours to generate) gets students into that specific class. Don't mix them up.</p>
       </div>
     </section>
 
@@ -199,7 +199,7 @@ const BODY_HTML = `<div class="topbar">
         <table>
           <thead><tr><th>Role</th><th>Creates</th><th>Joins</th></tr></thead>
           <tbody>
-            <tr><td>Principal</td><td>The school itself</td><td>Any class in their own school, automatically</td></tr>
+            <tr><td>Principal/IT Admin</td><td>The school itself</td><td>Any class in their own school, automatically</td></tr>
             <tr><td>Teacher</td><td>A class, once staff of that school</td><td>Any other class in that same school</td></tr>
             <tr><td>Student</td><td>Nothing — no class or school creation</td><td>A class, with its invite code</td></tr>
           </tbody>
@@ -211,7 +211,7 @@ const BODY_HTML = `<div class="topbar">
         <table>
           <thead><tr><th>Code</th><th>Who has it</th><th>What it unlocks</th></tr></thead>
           <tbody>
-            <tr><td>Staff code</td><td>Your Principal</td><td>Joining the school itself, as staff</td></tr>
+            <tr><td>Staff code</td><td>Your Principal/IT Admin</td><td>Joining the school itself, as staff</td></tr>
             <tr><td>Class invite code</td><td>You, per class you teach</td><td>Students joining that one class</td></tr>
           </tbody>
         </table>
@@ -232,7 +232,7 @@ const BODY_HTML = `<div class="topbar">
       </details>
       <details>
         <summary>What happens if I lose my staff code?</summary>
-        <p>Ask your Principal — they can generate a new one from School Settings at any time. The old one stops working the moment they do.</p>
+        <p>Ask your Principal/IT Admin — they can generate a new one from School Settings at any time. The old one stops working the moment they do.</p>
       </details>
       <details>
         <summary>Does Locker replace our attendance system or ERP?</summary>
@@ -240,7 +240,7 @@ const BODY_HTML = `<div class="topbar">
       </details>
       <details>
         <summary>Can a student remove themselves from my class?</summary>
-        <p>Yes, anytime, with no approval needed. You can't be removed as the class's teacher the same way — that requires a Principal-level action.</p>
+        <p>Yes, anytime, with no approval needed. You can't be removed as the class's teacher the same way — that requires a Principal/IT Admin-level action.</p>
       </details>
     </section>
 

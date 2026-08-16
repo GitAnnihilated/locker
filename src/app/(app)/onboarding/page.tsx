@@ -19,10 +19,13 @@ import { JoinSchoolStaffForm } from "./_components/JoinSchoolStaffForm";
  * account, which defaults to SCHOOL/STUDENT and never sees it again unless
  * they explicitly ask via Settings):
  *   0. Where are you studying? — School or College/University.
- *   1. SCHOOL only: are you a Student, Teacher, or Principal? (College keeps
- *      its original student-first model unchanged — no role gate there.)
- *   2. Find (or create) your school — a Principal creates one; everyone
- *      else can only search/join, since a school is a real institution now.
+ *   1. SCHOOL only: are you a Student, Teacher, or Principal/IT Admin?
+ *      (College keeps its original student-first model unchanged — no role
+ *      gate there.)
+ *   2. Find (or create) your school — a Principal/IT Admin creates one;
+ *      everyone else can only search/join, since a school is a real
+ *      institution now, and creating one is behind a paywall (see
+ *      CreateSchoolForm/createSchool).
  *   3. Create a class there (Teachers/Principals only) or join one with a code.
  */
 export default async function OnboardingPage({
@@ -99,8 +102,8 @@ export default async function OnboardingPage({
               <CardHeader className="font-semibold">Join as staff</CardHeader>
               <CardBody>
                 <p className="mb-3 text-sm text-subtle">
-                  Ask {school.name}&apos;s Principal for its staff code — you&apos;ll need it before you can create
-                  or join any class here.
+                  Ask {school.name}&apos;s Principal/IT Admin for its staff code — you&apos;ll need it before you can
+                  create or join any class here.
                 </p>
                 <JoinSchoolStaffForm />
               </CardBody>
@@ -158,13 +161,13 @@ export default async function OnboardingPage({
               <p className="mb-2 text-xs font-medium text-subtle">
                 {isCollege
                   ? `Can't find your college? You'll be its founder.`
-                  : `Can't find your school? You'll be its Principal.`}
+                  : `Can't find your school? You'll be its Principal/IT Admin.`}
               </p>
               <CreateSchoolForm orgUnit={t.orgUnit} classUnit={t.classUnit} classUnitPlural={t.classUnitPlural} />
             </div>
           ) : (
             <p className="border-t border-border pt-3 text-xs text-subtle">
-              Can&apos;t find your school? Ask your school&apos;s Principal to set it up on Locker first.
+              Can&apos;t find your school? Ask your school&apos;s Principal/IT Admin to set it up on Locker first.
             </p>
           )}
         </CardBody>

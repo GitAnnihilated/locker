@@ -25,7 +25,7 @@ export default async function ClassesPage() {
     return (
       <EmptyState
         icon="🧑‍🏫"
-        title="Teachers and Principals only"
+        title="Teachers and Principals/IT Admins only"
         description="Students join a class with an invite code from their teacher instead."
       />
     );

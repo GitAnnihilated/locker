@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     template: "%s · Locker",
   },
   description:
-    "Homework, groups, marketplace, achievements, and parent-teacher meetings — the collaboration layer for students, teachers, and principals.",
+    "Homework, groups, marketplace, achievements, and parent-teacher meetings — the collaboration layer for students, teachers, and Principals/IT Admins.",
   applicationName: "Locker",
 };
 

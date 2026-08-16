@@ -64,10 +64,10 @@ export default async function SchoolSettingsPage() {
     return (
       <EmptyState
         icon="🔒"
-        title={isPrincipalGoverned ? "This school's Principal only" : "School founders & moderators only"}
+        title={isPrincipalGoverned ? "This school's Principal/IT Admin only" : "School founders & moderators only"}
         description={
           isPrincipalGoverned
-            ? "Teachers manage their own class from Class Settings, but school-wide settings belong to the Principal — by design."
+            ? "Teachers manage their own class from Class Settings, but school-wide settings belong to the Principal/IT Admin — by design."
             : "Class Founders manage their own class from Class Settings, but school-wide settings are separate — by design."
         }
         action={
@@ -130,7 +130,7 @@ export default async function SchoolSettingsPage() {
         <CardBody className="p-0">
           <p className="px-4 pt-3 text-xs text-subtle">
             {isPrincipalGoverned
-              ? "Only teachers and the Principal can create a class here — moderation below is for removing spam after the fact, not a gate before it happens."
+              ? "Only teachers and the Principal/IT Admin can create a class here — moderation below is for removing spam after the fact, not a gate before it happens."
               : "Classes launch instantly when a student creates them — moderation here is for removing spam after the fact, never a gate before students can use Locker."}
           </p>
           <div className="mt-2">
@@ -164,23 +164,23 @@ export default async function SchoolSettingsPage() {
 
           <Card className="border-danger/30">
             <CardHeader className="font-semibold text-danger">
-              Transfer {isPrincipalGoverned ? "Principal role" : "ownership"}
+              Transfer {isPrincipalGoverned ? "Principal/IT Admin role" : "ownership"}
             </CardHeader>
             <CardBody>
               <p className="mb-3 text-sm text-subtle">
                 {isPrincipalGoverned
-                  ? "Hands Principal control to another member of this school. This cannot be undone by you — only the new Principal can transfer it back."
+                  ? "Hands Principal/IT Admin control to another member of this school. This cannot be undone by you — only the new Principal/IT Admin can transfer it back."
                   : "Hands School Founder control to another member of this school. This cannot be undone by you — only the new founder can transfer it back."}
               </p>
               <EmailActionForm
                 schoolId={school.id}
                 action={transferSchoolOwnership}
-                placeholder={isPrincipalGoverned ? "new-principal@school.edu" : "new-founder@school.edu"}
+                placeholder={isPrincipalGoverned ? "new-admin@school.edu" : "new-founder@school.edu"}
                 buttonLabel="Transfer"
                 buttonVariant="danger"
                 confirmMessage={
                   isPrincipalGoverned
-                    ? "Transfer the Principal role? You will no longer manage this school."
+                    ? "Transfer the Principal/IT Admin role? You will no longer manage this school."
                     : "Transfer school ownership? You will no longer be the School Founder."
                 }
               />

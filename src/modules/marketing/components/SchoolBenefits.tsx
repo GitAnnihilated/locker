@@ -3,7 +3,7 @@ import { Eyebrow } from "./Eyebrow";
 const POINTS = [
   {
     title: "Real roles, not a free-for-all",
-    description: "A Principal sets up the school once; teachers create and own their classes. Students can join, never create one in a teacher's name.",
+    description: "A Principal/IT Admin sets up the school once; teachers create and own their classes. Students can join, never create one in a teacher's name.",
   },
   {
     title: "A complement, not a replacement",

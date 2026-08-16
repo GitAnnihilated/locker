@@ -93,7 +93,7 @@ export async function requireSchoolStaff(userId: string, schoolId: string) {
     where: { schoolId_userId: { schoolId, userId } },
   });
   if (!staff) {
-    throw new Error("You need to join this school with your Principal's staff code first.");
+    throw new Error("You need to join this school with your Principal/IT Admin's staff code first.");
   }
 }
 

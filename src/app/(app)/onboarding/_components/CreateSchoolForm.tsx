@@ -30,13 +30,16 @@ export function CreateSchoolForm({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [devCode, setDevCode] = useState("");
   const [similar, setSimilar] = useState<SchoolSearchResult[] | null>(null);
   const orgLower = orgUnit.toLowerCase();
+  const isSchool = orgUnit !== "College";
 
   async function doCreate() {
     setError(null);
     const fd = new FormData();
     fd.set("name", name);
+    if (isSchool) fd.set("devCode", devCode);
     try {
       const result = await createSchool(fd);
       if ("error" in result) {
@@ -53,6 +56,10 @@ export function CreateSchoolForm({
     setError(null);
     if (name.trim().length < 2) {
       setError(`Enter a ${orgLower} name`);
+      return;
+    }
+    if (isSchool && !devCode.trim()) {
+      setError("Enter your developer code — Locker is $85/month per school, and this is a gated preview.");
       return;
     }
     start(async () => {
@@ -103,20 +110,48 @@ export function CreateSchoolForm({
   }
 
   return (
-    <div>
-      <div className="flex gap-2">
+    <div className="space-y-4">
+      {isSchool && (
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+          <div className="flex items-baseline justify-between">
+            <p className="font-semibold">Locker for Schools</p>
+            <p className="text-lg font-bold">
+              $85<span className="text-sm font-normal text-subtle">/month</span>
+            </p>
+          </div>
+          <p className="mt-1 text-xs text-subtle">
+            Per school — every teacher, every class, every student included. Billing isn't live on
+            the site yet; subscribing goes through us directly for now.
+          </p>
+          <Button type="button" variant="secondary" disabled className="mt-3 w-full">
+            Subscribe — coming soon
+          </Button>
+        </div>
+      )}
+
+      <div>
         <Input
           name="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={orgUnit === "College" ? "e.g. State University" : "e.g. Lincoln High School"}
           required
+          className="mb-2"
         />
-        <Button type="button" variant="secondary" disabled={pending} onClick={handleCheck}>
+        {isSchool && (
+          <Input
+            name="devCode"
+            value={devCode}
+            onChange={(e) => setDevCode(e.target.value)}
+            placeholder="Developer code"
+            className="mb-2"
+          />
+        )}
+        <Button type="button" variant="secondary" disabled={pending} onClick={handleCheck} className="w-full">
           {pending ? "Checking…" : `Create ${orgLower}`}
         </Button>
       </div>
-      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
     </div>
   );
 }

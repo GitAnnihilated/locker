@@ -35,7 +35,7 @@ export function Hero() {
           </h1>
           <p className="animate-fade-up reveal-2 mt-5 max-w-lg text-lg text-subtle text-pretty">
             Stay organized, coordinate with your class, and get real credit
-            for what you do — free for every student, teacher, and principal.
+            for what you do — free for every student and teacher.
           </p>
 
           <div className="animate-fade-up reveal-3 mt-8 flex flex-wrap items-center gap-3">
@@ -50,7 +50,7 @@ export function Hero() {
           </div>
 
           <p className="animate-fade-up reveal-4 mt-5 text-sm text-faint">
-            No setup fee, no contract, no seat licenses.
+            Free to join a class. No contract, no seat licenses.
           </p>
 
           {/* The "show, don't tell" strip: scannable in under a second, even

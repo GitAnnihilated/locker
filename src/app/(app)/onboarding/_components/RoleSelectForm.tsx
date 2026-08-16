@@ -9,7 +9,7 @@ import type { UserRole } from "@prisma/client";
 const OPTIONS: { role: UserRole; icon: string; label: string; description: string }[] = [
   { role: "STUDENT", icon: "🎒", label: "Student", description: "Join classes, discussions, and study groups." },
   { role: "TEACHER", icon: "🧑‍🏫", label: "Teacher", description: "Create classes and run PTMs for your students." },
-  { role: "PRINCIPAL", icon: "🏛️", label: "Principal", description: "Set up the school for your teachers." },
+  { role: "PRINCIPAL", icon: "🏛️", label: "Principal/IT Admin", description: "Set up the school for your teachers." },
 ];
 
 /** SCHOOL-only onboarding step, asked once — see core/education/role.ts. */

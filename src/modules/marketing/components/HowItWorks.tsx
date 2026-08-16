@@ -4,12 +4,12 @@ const STEPS = [
   {
     n: "01",
     title: "Create your account",
-    description: "Sign up with your email, then tell us if you're a student, teacher, or principal.",
+    description: "Sign up with your email, then tell us if you're a student, teacher, or Principal/IT Admin.",
   },
   {
     n: "02",
     title: "Find or set up your school",
-    description: "Search for your school. Principals create it if it's not there yet — everyone else just joins.",
+    description: "Search for your school. Principals/IT Admins create it if it's not there yet — everyone else just joins.",
   },
   {
     n: "03",

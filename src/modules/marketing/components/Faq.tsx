@@ -3,11 +3,11 @@ import { Eyebrow } from "./Eyebrow";
 const FAQS = [
   {
     q: "Is Locker free?",
-    a: "Yes. Setting up a school, a class, and using every current module costs nothing.",
+    a: "For students and teachers, yes — joining a class, and everything you do inside it, costs nothing. Setting up a school itself is $85/month per school, billed to whoever registers it (typically the Principal/IT Admin). College accounts stay fully free to set up, same as before.",
   },
   {
     q: "Who can create a school or a class?",
-    a: "A school is created and owned by its Principal. From there, teachers create and own their own classes. Students join with an invite code — they never need to create anything to get started.",
+    a: "A school is created and owned by its Principal/IT Admin. From there, teachers create and own their own classes. Students join with an invite code — they never need to create anything to get started.",
   },
   {
     q: "Does Locker replace our school's existing ERP?",
@@ -19,7 +19,7 @@ const FAQS = [
   },
   {
     q: "Can a class remove someone who's causing problems?",
-    a: "Yes. A class's owner and moderators can remove members, and whoever owns the school (its Principal, or its Founder for a college account) can remove an entire spam class if needed.",
+    a: "Yes. A class's owner and moderators can remove members, and whoever owns the school (its Principal/IT Admin, or its Founder for a college account) can remove an entire spam class if needed.",
   },
   {
     q: "What happens to my data?",

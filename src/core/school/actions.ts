@@ -70,12 +70,16 @@ export async function findSimilarSchools(name: string): Promise<SchoolSearchResu
 const createSchoolSchema = z.object({ name: z.string().min(2).max(120) });
 
 /**
- * SCHOOL: gated to the PRINCIPAL role — a school is a real institution, and
- * only its Principal creates/owns it (see src/core/permissions/guards.ts
- * requirePrincipal). COLLEGE keeps the original no-gatekeeping model: the
- * first student to look for their college and not find it just creates it,
- * since there's no Principal-equivalent role for College accounts (see
- * role architecture — COLLEGE only has STUDENT/TEACHER).
+ * SCHOOL: gated to the PRINCIPAL/IT Admin role — a school is a real
+ * institution, and only its Principal/IT Admin creates/owns it (see
+ * src/core/permissions/guards.ts requirePrincipal) — AND behind a paywall:
+ * Locker is $85/month per school, and this is a deliberately dummy
+ * paywall with no real payment processing wired up yet. Nobody gets past
+ * it without SCHOOL_CREATION_DEV_CODE, checked server-side here, never
+ * trusted from anything the client claims. COLLEGE keeps the original
+ * no-gatekeeping, no-paywall model — the first student to look for their
+ * college and not find it just creates it, since there's no
+ * Principal-equivalent role or pricing story for College accounts.
  *
  * Still hard-blocks an EXACT normalized duplicate ("Lincoln High School" vs
  * "lincoln   high  school!!") — that's not a judgment call the creator needs
@@ -91,6 +95,12 @@ export async function createSchool(
     const dbUser = await db.user.findUniqueOrThrow({ where: { id: user.id }, select: { educationType: true } });
     if (dbUser.educationType === "SCHOOL") {
       await requirePrincipal(user.id);
+
+      const devCode = String(formData.get("devCode") ?? "").trim();
+      const expected = process.env.SCHOOL_CREATION_DEV_CODE;
+      if (!expected || devCode !== expected) {
+        throw new Error("That developer code isn't valid. Locker is $85/month per school — contact us to subscribe.");
+      }
     }
 
     const parsed = createSchoolSchema.safeParse({ name: formData.get("name") });
@@ -277,7 +287,7 @@ export async function transferSchoolOwnership(schoolId: string, formData: FormDa
 
     const currentOwner = await db.user.findUnique({ where: { id: user.id }, select: { role: true } });
     if (currentOwner?.role === "PRINCIPAL" && target.role !== "PRINCIPAL") {
-      throw new Error("The new owner must also have the Principal role.");
+      throw new Error("The new owner must also have the Principal/IT Admin role.");
     }
 
     const isMember = await db.membership.findFirst({
