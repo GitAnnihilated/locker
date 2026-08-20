@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import "./guide.css";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata = {
-  title: "Locker for Teachers",
+export const metadata: Metadata = buildMetadata({
+  title: "Locker for Teachers — Orientation Guide",
   description: "A teacher's orientation guide to Locker — getting started, classes, the student notebook, PTMs, and everything else.",
-};
+  path: "/guide",
+});
 
 /**
  * Static orientation guide, intentionally OUTSIDE the (app) auth-gated

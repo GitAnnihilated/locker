@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/core/auth/auth";
 import { Card, CardBody } from "@/ui/components/Card";
 import { LogoMark } from "@/ui/brand/Logo";
 import { VerifyEmailForm } from "./_components/VerifyEmailForm";
+
+// Carries a ?email= query param — must never be indexed (see robots.ts).
+export const metadata: Metadata = {
+  title: "Verify your email",
+  robots: { index: false, follow: false },
+};
 
 export default async function VerifyEmailPage({
   searchParams,

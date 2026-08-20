@@ -6,11 +6,13 @@ import { Eyebrow } from "@/modules/marketing/components/Eyebrow";
 import { Card, CardBody } from "@/ui/components/Card";
 import { Button } from "@/ui/components/Button";
 import { Avatar } from "@/ui/components/Avatar";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildMetadata({
   title: "The Creator",
   description: "Who's building Locker, why, and what it's taught them so far.",
-};
+  path: "/creator",
+});
 
 const MILESTONES = [
   {

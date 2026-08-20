@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireDbUser } from "@/core/auth/session";
 import { getRecentNotifications, getUnreadCount } from "@/core/notifications/queries";
@@ -11,6 +12,17 @@ import { LogoutButton } from "@/core/auth/components/LogoutButton";
 import { LogoMark } from "@/ui/brand/Logo";
 import { Sidebar } from "./_components/Sidebar";
 import { MobileNav } from "./_components/MobileNav";
+
+// Every route in this group requires a signed-in DB user (requireDbUser
+// below redirects otherwise), so none of it should ever be indexed —
+// noindex here covers the whole group in one place rather than per-page.
+// robots.txt disallows these paths too; this is the defense-in-depth
+// layer for a crawler that ignores robots.txt but still renders the page
+// (which, since it just gets redirected to /login, would index nothing
+// useful anyway — this just makes the "don't index it" explicit).
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function AppLayout({
   children,

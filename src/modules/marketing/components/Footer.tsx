@@ -3,19 +3,20 @@ import { Logo } from "@/ui/brand/Logo";
 
 const COLUMNS = [
   {
-    title: "Product",
+    title: "Features",
     links: [
-      { label: "Features", href: "#features" },
-      { label: "How it works", href: "#how-it-works" },
-      { label: "For schools", href: "#schools" },
-      { label: "FAQ", href: "#faq" },
+      { label: "Homework tracker", href: "/features/homework" },
+      { label: "Group Finder", href: "/features/groups" },
+      { label: "Marketplace", href: "/features/marketplace" },
+      { label: "Achievements", href: "/features/achievements" },
     ],
   },
   {
     title: "Company",
     links: [
+      { label: "For schools", href: "/schools" },
+      { label: "Teacher guide", href: "/guide" },
       { label: "Creator", href: "/creator" },
-      { label: "Guide", href: "/guide" },
     ],
   },
   {

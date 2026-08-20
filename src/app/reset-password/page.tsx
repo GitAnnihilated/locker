@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/core/auth/auth";
 import { Card, CardBody } from "@/ui/components/Card";
 import { LogoMark } from "@/ui/brand/Logo";
 import { ResetPasswordForm } from "./_components/ResetPasswordForm";
+
+// Carries a ?email= query param — must never be indexed (see robots.ts).
+export const metadata: Metadata = {
+  title: "Reset your password",
+  robots: { index: false, follow: false },
+};
 
 export default async function ResetPasswordPage({
   searchParams,

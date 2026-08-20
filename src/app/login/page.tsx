@@ -1,10 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/core/auth/auth";
 import { Card, CardBody } from "@/ui/components/Card";
 import { Badge } from "@/ui/components/Badge";
 import { LogoMark } from "@/ui/brand/Logo";
+import { buildMetadata } from "@/lib/seo";
 import { CredentialsSignInForm } from "./_components/CredentialsSignInForm";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Sign in",
+  description: "Sign in to Locker to reach your classes, homework, groups, and achievements.",
+  path: "/login",
+});
 
 export default async function LoginPage({
   searchParams,

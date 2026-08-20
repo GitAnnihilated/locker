@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/core/auth/auth";
 import { Card, CardBody } from "@/ui/components/Card";
 import { LogoMark } from "@/ui/brand/Logo";
 import { ForgotPasswordForm } from "./_components/ForgotPasswordForm";
+
+// Utility step in the auth flow, not a page anyone should land on from
+// search — kept out of the index (see robots.ts too).
+export const metadata: Metadata = {
+  title: "Reset your password",
+  robots: { index: false, follow: false },
+};
 
 export default async function ForgotPasswordPage() {
   const session = await auth();

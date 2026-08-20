@@ -11,16 +11,16 @@ export function MarketingHeader() {
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm font-medium text-subtle md:flex">
-          <a href="#features" className="transition duration ease hover:text-text">
+          <a href="/#features" className="transition duration ease hover:text-text">
             Features
           </a>
-          <a href="#how-it-works" className="transition duration ease hover:text-text">
+          <a href="/#how-it-works" className="transition duration ease hover:text-text">
             How it works
           </a>
-          <a href="#schools" className="transition duration ease hover:text-text">
+          <Link href="/schools" className="transition duration ease hover:text-text">
             For schools
-          </a>
-          <a href="#faq" className="transition duration ease hover:text-text">
+          </Link>
+          <a href="/#faq" className="transition duration ease hover:text-text">
             FAQ
           </a>
         </nav>

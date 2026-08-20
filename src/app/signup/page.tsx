@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/core/auth/auth";
 import { Card, CardBody } from "@/ui/components/Card";
 import { LogoMark } from "@/ui/brand/Logo";
+import { buildMetadata } from "@/lib/seo";
 import { SignUpForm } from "./_components/SignUpForm";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Create your account",
+  description: "Create a free Locker account — homework, groups, a school marketplace, and achievements for students and teachers.",
+  path: "/signup",
+});
 
 export default async function SignUpPage() {
   // An already-authenticated visitor doesn't need the signup form.
